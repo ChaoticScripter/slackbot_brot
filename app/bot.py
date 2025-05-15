@@ -2,7 +2,7 @@
 # app/bot.py
 #==========================
 from slack_bolt import App
-from db.db import Session  # statt from db.models import Session
+from db.db import Session
 from db.models import Order, User
 from dotenv import load_dotenv
 import os
