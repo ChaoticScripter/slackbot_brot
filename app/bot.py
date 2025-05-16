@@ -1,6 +1,7 @@
 #==========================
 # app/bot.py
 #==========================
+
 from slack_bolt import App
 from db.db import Session
 from db.models import Order, User

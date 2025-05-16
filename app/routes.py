@@ -1,6 +1,7 @@
 #==========================
 # app/routes.py
 #==========================
+
 from flask import Flask, request
 from slack_bolt.adapter.flask import SlackRequestHandler
 from app.bot import app as slack_app

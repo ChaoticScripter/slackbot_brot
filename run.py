@@ -1,6 +1,7 @@
 #==========================
 # run.py
 #==========================
+
 from app.routes import flask_app
 from db import init_db
 
