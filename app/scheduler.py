@@ -90,6 +90,6 @@ def send_reminders():
 
 def init_scheduler():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(send_reminders, "cron", day_of_week="tue", hour=12, minute=38)
+    scheduler.add_job(send_reminders, "cron", day_of_week="tue", hour=13, minute=2)
     scheduler.start()
     return scheduler
