@@ -15,6 +15,7 @@ app = App(
     signing_secret=os.getenv("SLACK_SIGNING_SECRET")
 )
 
+
 @app.command("/order")
 def handle_order(ack, respond, command):
     ack()
@@ -27,28 +28,46 @@ def handle_order(ack, respond, command):
         summary = []
         user = session.query(User).filter_by(slack_id=user_id).first()
         if not user:
-            user = User(slack_id=user_id)
+            user = User(slack_id=user_id, name=user_id)
             session.add(user)
             session.commit()
         for item in additions:
             try:
                 kind, amount = item.strip().split()
-                order = session.query(Order).filter_by(user_id=user.id, kind=kind).first()
+                order = session.query(Order).filter_by(user_id=user.id, item=kind).first()
                 if order:
-                    order.amount += int(amount)
+                    order.quantity += int(amount)
                 else:
-                    order = Order(user_id=user.id, kind=kind, amount=int(amount))
+                    order = Order(user_id=user.id, item=kind, quantity=int(amount))
                     session.add(order)
-                summary.append(f"{amount}x {kind}")
+                summary.append(f"• {amount}x {kind}")
             except Exception as e:
                 respond(f"Fehler beim Parsen: `{item.strip()}` — {e}")
                 session.rollback()
                 return
         session.commit()
         updated_orders = session.query(Order).filter_by(user_id=user.id).all()
-        lines = "\n".join([f"|{o.amount:^5}|{o.kind:^20}|" for o in updated_orders])
-        respond(f"""> **Zur Bestellung wird folgendes hinzugefügt:**\n{chr(10)}""" +
-                f"> {chr(10).join(summary)}\n\n" +
-                "> **Deine aktualisierte Bestellung sieht wie folgt aus:**\n" +
-                "```|Anzahl|Typ|\n|:--:|:--------------------:|\n" + lines + "\n```")
+
+        # Verbesserte Formatierung
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Zur Bestellung hinzugefügt:*\n" + "\n".join(summary)
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deine aktuelle Bestellung:*\n" +
+                            "\n".join([f"• {o.quantity}x {o.item}" for o in updated_orders])
+                }
+            }
+        ]
+        respond(blocks=blocks)
     session.close()
