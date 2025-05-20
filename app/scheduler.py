@@ -4,28 +4,92 @@
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from slack_sdk import WebClient
-from db.models import Session, Order, User
-import datetime
+from db.db import Session
+from db.models import Order, User
 import os
+import logging
+from typing import Optional
 
-client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
-scheduler = BackgroundScheduler()
+logger = logging.getLogger(__name__)
+
+
+def get_slack_client() -> Optional[WebClient]:
+    token = os.environ.get("SLACK_BOT_TOKEN")
+    if not token:
+        logger.error("SLACK_BOT_TOKEN nicht gefunden")
+        return None
+    return WebClient(token=token)
+
 
 def send_reminders():
-    session = Session()
-    users = session.query(User).all()
-    for user in users:
-        if user.vacation == "on":
-            continue
-        orders = session.query(Order).filter_by(user_id=user.id).all()
-        if not orders:
-            continue
-        msg = "> Deine Bestellung für Mittwoch:\n"
-        for order in orders:
-            msg += f"- {order.amount}x {order.kind}\n"
-        client.chat_postMessage(channel=user.slack_id, text=msg)
-    session.close()
+    client = get_slack_client()
+    if not client:
+        return
 
-    # Jeden Donnerstag um 14:00 Uhr Erinnerungen senden
-    scheduler.add_job(send_reminders, "cron", day_of_week="thu", hour=14, minute=00)
+    session = Session()
+    try:
+        users = session.query(User).all()
+        for user in users:
+            if user.is_on_vacation:
+                continue
+
+            orders = session.query(Order).filter_by(user_id=user.id).all()
+            if not orders:
+                continue
+
+            order_items = [f"• {order.quantity}x {order.item}" for order in orders]
+
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "🥨 *Erinnerung: Deine Brötchenbestellung*"
+                    }
+                }
+            ]
+
+            attachments = [
+                {
+                    "color": "#f2c744",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "*Deine aktuelle Bestellung für Mittwoch:*\n" + "\n".join(order_items)
+                            }
+                        },
+                        {
+                            "type": "context",
+                            "elements": [
+                                {
+                                    "type": "mrkdwn",
+                                    "text": "Änderungen können mit `/order` vorgenommen werden"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+
+            try:
+                client.chat_postMessage(
+                    channel=user.slack_id,
+                    blocks=blocks,
+                    attachments=attachments
+                )
+            except Exception as e:
+                logger.error(f"Fehler beim Senden der Nachricht an {user.slack_id}: {e}")
+
+    except Exception as e:
+        logger.error(f"Fehler in send_reminders: {e}")
+    finally:
+        session.close()
+
+
+def init_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(send_reminders, "cron", day_of_week="tue", hour=12, minute=38)
     scheduler.start()
+    return scheduler
