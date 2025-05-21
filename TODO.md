@@ -3,7 +3,7 @@
 |        Branches (feature)         | Priorität |  Abhängigkeit  |            Beschreibung            |          Status          |
 |:---------------------------------:|:---------:|:--------------:|:----------------------------------:|:------------------------:|
 |  feature_order_function_flat_1.0  | Sehr Hoch |     Keine      | Grundlegende Bestellfunktionalität |     Erste Priorität      |
-|    feature_orderSave_flat_1.0     |  Mittel   | order_function |        Bestellung speichern        |    Nach Hauptfunktion    |
+|    feature_order_save_flat_1.0    |  Mittel   | order_function |        Bestellung speichern        |    Nach Hauptfunktion    |
 |  feature_order_reminder_flat_1.0  |   Hoch    | order_function |   Erinnerungen für Bestellungen    | Parallel zu Liste/Senden |
 | feature_orderListAndSend_flat_1.0 |   Hoch    | order_function |      Bestellliste und Versand      |   Parallel zu Reminder   |
 |   feature_order_remove_flat_1.0   |  Mittel   | order_function |        Bestellung entfernen        |   Nach Basisfunktionen   |
@@ -53,7 +53,7 @@
     - [ ] Löschen einer bestimmten Erinnerung `/order reminder delete [ID/Name]`
       - [ ] Bestätigung der Löschung einer bestimmten Erinnerung `/order reminder delete accept` , `/order reminder delete cancel`
 ### Erweiterte Funktion zum Ändern des in der Tabelle angezeigten Namens (lower priority)
-- [ ] **feature_order_nameChange_flat_1.0**
+- [ ] **feature_order_name_change_flat_1.0**
 ### Erweiterte Funktionalität für das individuelle Speichern von Bestellungstemplates
 - [ ] **feature_order_save_flat_1.0**
 ### Erweiterte Funktion zur Statusänderung der Anwesenheit
