@@ -32,6 +32,8 @@
         - [ ] Produkte in der Datenbank ändern
         - [ ] Produkte in der Datenbank aktivieren/deaktivieren
       - [ ] Aktuelle Bestellungen anzeigen `/order admin list`
+      - [ ] Installieren und implementieren von prettytable als "Tabelle" für Slack
+        [Prettytables](https://pypi.org/project/prettytable/)
 
 ### Erweiterte Bestellungs-Funktionen, um bestehende Bestellungen zu ändern/löschen
 - [ ] **feature_order_remove_flat_1.0**
