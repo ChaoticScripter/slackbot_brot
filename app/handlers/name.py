@@ -2,8 +2,11 @@
 # app/handlers/name.py
 #==========================
 
+# app/handlers/name.py
 from db.db import Session
 from db.models import User
+from app.utils.formatting import create_name_blocks
+
 
 def handle_name(ack, respond, command):
     ack()
@@ -23,9 +26,12 @@ def handle_name(ack, respond, command):
                 respond("Du bist nicht registriert. Bitte melde dich zuerst an.")
                 return
 
+            old_name = user.name
             user.name = new_name
             session.commit()
-            respond(f"Dein Name wurde auf `{new_name}` aktualisiert!")
+
+            blocks, attachments = create_name_blocks(current_name=old_name, new_name=new_name)
+            respond(blocks=blocks, attachments=attachments)
             return
 
         user = session.query(User).filter_by(slack_id=user_id).first()
@@ -33,7 +39,8 @@ def handle_name(ack, respond, command):
             respond("Du bist nicht registriert. Bitte melde dich zuerst an.")
             return
 
-        respond(f"Dein aktueller Name ist `{user.name}`.\n\nMit `/name change <neuer Name>` kannst du deinen Namen ändern.")
+        blocks, attachments = create_name_blocks(current_name=user.name)
+        respond(blocks=blocks, attachments=attachments)
 
     finally:
         session.close()
