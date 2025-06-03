@@ -2,7 +2,6 @@
 # app/handlers/name.py
 #==========================
 
-# app/handlers/name.py
 from db.db import Session
 from db.models import User
 from app.utils.formatting import create_name_blocks

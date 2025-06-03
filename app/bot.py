@@ -1,8 +1,13 @@
+#==========================
+# app/bot.py
+#==========================
+
 from slack_bolt import App
 import os
 from app.handlers.order import handle_order_add
 from app.handlers.name import handle_name
 from app.handlers.help import handle_help
+from app.handlers.homeMenu import handle_app_home_opened
 
 app = App(
     token=os.getenv("SLACK_BOT_TOKEN"),
