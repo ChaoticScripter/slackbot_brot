@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Konstanten
-SERVER="root@45.149.204.117"
+SERVER="root@45.149.204.100"
 DEPLOY_PATH="/var/www/brotbot"
 
 # Server-Verzeichnis vorbereiten
