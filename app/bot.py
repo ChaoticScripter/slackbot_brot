@@ -57,3 +57,7 @@ def order_command(ack, respond, command):
 
     if text.startswith("add"):
         handle_order_add(ack, respond, command)
+
+@app.event("app_home_opened")
+def app_home_opened_handler(client, event, logger):
+    handle_app_home_opened(client, event, logger)
