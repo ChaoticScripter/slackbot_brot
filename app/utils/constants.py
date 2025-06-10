@@ -46,3 +46,36 @@ BLOCK_TYPES: Dict[str, str] = {
     "INPUT": "input",
     "CONTEXT": "context"
 }
+
+# Admin-Fehlermeldungen
+ADMIN_ERROR_MESSAGES: Dict[str, str] = {
+    "NOT_ADMIN": "Du hast keine Admin-Berechtigung.",
+    "INVALID_FORMAT": "Ungültiges Format für Admin-Befehl.",
+    "PRODUCT_EXISTS": "Produkt '{product}' existiert bereits.",
+    "PRODUCT_NOT_FOUND": "Produkt '{product}' nicht gefunden.",
+    "MISSING_PRODUCT_NAME": "Bitte gib einen Produktnamen an.",
+    "DB_ERROR": "Datenbankfehler. Bitte versuche es erneut."
+}
+
+# Admin-Befehle
+ADMIN_COMMANDS: Dict[str, str] = {
+    "HELP": "help",
+    "PRODUCT_ADD": "product_add",
+    "PRODUCT_DELETE": "product_delete",
+    "PRODUCT_ACTIVATE": "product_activate",
+    "PRODUCT_DEACTIVATE": "product_deactivate",
+    "PRODUCT_LIST": "product_list",
+    "ORDER_LIST": "order_list"
+}
+
+# Admin-Hilfetexte
+ADMIN_HELP_TEXTS: Dict[str, str] = {
+    "GENERAL": "Admin-Befehle:\n" +
+              "• `/order admin help` - Diese Hilfe anzeigen\n" +
+              "• `/order admin product_add <Name> [Beschreibung]` - Neues Produkt anlegen\n" +
+              "• `/order admin product_delete <Name>` - Produkt löschen\n" +
+              "• `/order admin product_activate <Name>` - Produkt aktivieren\n" +
+              "• `/order admin product_deactivate <Name>` - Produkt deaktivieren\n" +
+              "• `/order admin product_list` - Alle Produkte anzeigen\n" +
+              "• `/order admin order_list` - Aktuelle Bestellungen anzeigen"
+}

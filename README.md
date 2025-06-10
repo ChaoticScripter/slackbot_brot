@@ -223,4 +223,7 @@ CREATE INDEX idx_reminders_user ON reminders(user_id);
 CREATE INDEX idx_orderitem_order ON orderItem(order_id);
 CREATE INDEX idx_orderitem_prod ON orderItem(product_id);
 CREATE INDEX idx_savedorders_user ON savedOrders(user_id);
+
+-- Datenbank Anpassungen
+ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
 ```

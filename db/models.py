@@ -17,6 +17,7 @@ class User(Base):
     slack_id = Column(String(50), unique=True, nullable=False)
     name = Column(String(100), nullable=True)
     is_away = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
 
     orders = relationship("Order", back_populates="user")
     reminders = relationship("Reminder", back_populates="user")
