@@ -43,7 +43,7 @@ pip install -r requirements.txt
 Konfiguration einrichten:
 ```bash
 cp .env.example .env
-# .env mit eigenen Werten befüllen!
+# .env mit eigenen Werten befüllen
 ```
 Konfiguration
 Die `.env` Datei benötigt folgende Werte:
