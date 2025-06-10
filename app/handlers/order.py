@@ -6,26 +6,28 @@ from db.db import Session
 from db.models import Order, User, Product, OrderItem
 from app.utils.slack import get_current_order_period, get_slack_user_info
 from app.utils.formatting import create_order_blocks
+from app.utils.user_validation import check_user_registration
 from sqlalchemy import func
+from datetime import datetime
 import os
+
 
 def handle_order_add(ack, respond, command):
     ack()
-    text = command.get("text").strip()
     user_id = command["user_id"]
+
+    # Überprüfe Registrierung
+    user = check_user_registration(user_id, respond)
+    if not user:
+        return
+
+    text = command.get("text").strip()
     session = Session()
 
     try:
         period_start, period_end = get_current_order_period()
         additions = text[4:].split(",")
         summary = []
-
-        user = session.query(User).filter_by(slack_id=user_id).first()
-        if not user:
-            slack_name = get_slack_user_info(user_id, os.getenv("SLACK_BOT_TOKEN"))
-            user = User(slack_id=user_id, name=slack_name)
-            session.add(user)
-            session.commit()
 
         current_order = (
             session.query(Order)

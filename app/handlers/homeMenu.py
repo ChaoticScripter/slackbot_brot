@@ -2,7 +2,17 @@
 # app/handlers/homeMenu.py
 #==========================
 
-def create_home_view():
+def handle_app_home_opened(client, event, logger):
+    try:
+        user_id = event["user"]
+        client.views_publish(
+            user_id=user_id,
+            view=create_home_view(user_id)
+        )
+    except Exception as e:
+        logger.error(f"Error publishing home view: {e}")
+
+def create_home_view(user_id):
     return {
         "type": "home",
 	"blocks": [
@@ -111,12 +121,3 @@ def create_home_view():
 		}
 	]
 }
-
-def handle_app_home_opened(client, event, logger):
-    try:
-        client.views_publish(
-            user_id=event["user"],
-            view=create_home_view()
-        )
-    except Exception as e:
-        logger.error(f"Error publishing home view: {e}")

@@ -9,5 +9,4 @@ from app.scheduler import init_scheduler
 if __name__ == "__main__":
     init_db()
     scheduler = init_scheduler()
-    # Debug-Mode deaktivieren für Produktivumgebung
     flask_app.run(host="0.0.0.0", port=3000, debug=False)

@@ -8,6 +8,7 @@ from app.handlers.order import handle_order_add
 from app.handlers.name import handle_name
 from app.handlers.help import handle_help
 from app.handlers.homeMenu import handle_app_home_opened
+from app.handlers.registration import handle_register_action
 
 app = App(
     token=os.getenv("SLACK_BOT_TOKEN"),
@@ -22,7 +23,6 @@ def help_command(ack, respond):
 @app.command("/name")
 def name_command(ack, respond, command):
     handle_name(ack, respond, command)
-
 
 @app.command("/order")
 def order_command(ack, respond, command):
@@ -61,3 +61,7 @@ def order_command(ack, respond, command):
 @app.event("app_home_opened")
 def app_home_opened_handler(client, event, logger):
     handle_app_home_opened(client, event, logger)
+
+@app.action("register_user")
+def register_action(ack, body, respond):
+    handle_register_action(ack, body, respond)
