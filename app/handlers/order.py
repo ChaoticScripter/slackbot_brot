@@ -20,11 +20,11 @@ def handle_order_add(ack: callable, respond: callable, command: Dict[str, Any]) 
     session = Session()
 
     try:
-        # Überprüfe Registrierung
+        # Überprüfe Registrierung - wenn nicht registriert, zeigt check_user_registration
+        # automatisch den Registrierungsblock an
         user = check_user_registration(user_id, respond)
         if not user:
-            respond(ERROR_MESSAGES["REGISTRATION_REQUIRED"])
-            return
+            return  # Hier keine weitere Nachricht senden
 
         text = command.get("text", "").strip()
         if not text.startswith(COMMANDS["ORDER_ADD"]):
@@ -48,8 +48,8 @@ def handle_order_add(ack: callable, respond: callable, command: Dict[str, Any]) 
             blocks, attachments = create_order_blocks(user.name, summary, order_items, period_start, period_end)
             respond(blocks=blocks, attachments=attachments)
 
-        except ValueError:
-            respond(ERROR_MESSAGES["ORDER_INVALID_FORMAT"])
+        except ValueError as e:
+            respond(str(e))
         except Exception as e:
             respond(ERROR_MESSAGES["ORDER_GENERAL_ERROR"])
             raise
@@ -59,7 +59,7 @@ def handle_order_add(ack: callable, respond: callable, command: Dict[str, Any]) 
 
 
 def get_or_create_order(user: User, period_start: datetime, period_end: datetime,
-                        session: Session) -> Order:
+                       session: Session) -> Order:
     """Holt existierende oder erstellt neue Bestellung"""
     current_order = (
         session.query(Order)
@@ -80,7 +80,7 @@ def get_or_create_order(user: User, period_start: datetime, period_end: datetime
 
 
 def process_order_items(additions: List[str], current_order: Order,
-                        session: Session) -> Optional[List[str]]:
+                       session: Session) -> Optional[List[str]]:
     """Verarbeitet die Bestellpositionen"""
     summary: List[str] = []
 
@@ -107,7 +107,7 @@ def process_order_items(additions: List[str], current_order: Order,
 
 
 def update_order_item(order: Order, product: Product, quantity: int,
-                      session: Session) -> None:
+                     session: Session) -> None:
     """Aktualisiert oder erstellt Bestellposition"""
     existing_item = (
         session.query(OrderItem)
@@ -127,7 +127,7 @@ def update_order_item(order: Order, product: Product, quantity: int,
 
 
 def get_current_order_items(user: User, period_start: datetime, period_end: datetime,
-                            session: Session) -> List[Tuple[str, int]]:
+                          session: Session) -> List[Tuple[str, int]]:
     """Holt aktuelle Bestellpositionen"""
     return (
         session.query(Product.name, func.sum(OrderItem.quantity).label('total'))
