@@ -1,121 +1,53 @@
-#==========================
 # app/utils/formatting.py
-#==========================
-
-def format_order_summary(items):
-    return "\n".join([f"• {total}x {name}" for name, total in items])
+from typing import Dict, List, Tuple, Optional
 
 
-def create_order_blocks(user_name, summary, items, period_start, period_end):
-    blocks = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"🥨 Hey {user_name}, deine Bestellung wurde aktualisiert!",
-                "emoji": True
-            }
-        }
-    ]
+def create_name_blocks(current_name: str, new_name: Optional[str] = None) -> Tuple[List[Dict], List[Dict]]:
+    """Erstellt Slack-Blocks für die Namensanzeige/-änderung"""
+    blocks = []
+    attachments = []
 
-    attachments = [
-        {
-            "color": "#f2c744",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*Hinzugefügt:*\n" + "\n".join(summary)
-                    }
-                },
-                {
-                    "type": "divider"
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*Deine aktuelle Bestellung:*\n" + format_order_summary(items)
-                    }
-                },
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"Bestellzeitraum: {period_start.strftime('%d.%m.%Y %H:%M')} - {period_end.strftime('%d.%m.%Y %H:%M')}"
-                        }
-                    ]
+    if new_name:
+        # Name wurde geändert
+        blocks.extend([
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"✅ Dein Name wurde geändert von *{current_name}* zu *{new_name}*"
                 }
-            ]
-        }
-    ]
+            }
+        ])
+    else:
+        # Aktuelle Namenanzeige
+        blocks.extend([
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"Dein aktueller Name ist: *{current_name}*"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Um deinen Namen zu ändern, nutze:\n`/name change <neuer_name>`"
+                }
+            }
+        ])
+
     return blocks, attachments
 
 
-def create_help_blocks():
-    blocks = [
+def create_registration_blocks() -> List[Dict]:
+    """Erstellt Slack-Blocks für die Registrierungsaufforderung"""
+    return [
         {
-            "type": "header",
+            "type": "section",
             "text": {
-                "type": "plain_text",
-                "text": "Brötchenbot Hilfe 🛟",
-                "emoji": True
+                "type": "mrkdwn",
+                "text": "Du bist noch nicht registriert! Bitte registriere dich zuerst mit:\n`/name <dein_name>`"
             }
         }
     ]
-
-    attachments = [
-        {
-            "color": "#f2c744",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*Verfügbare Befehle:*\n\n" +
-                                "• `/order add <Produkt> <Menge>, ...`\n" +
-                                "  _Fügt Produkte zur Bestellung hinzu_\n\n" +
-                                "• `/name`\n" +
-                                "  _Zeigt deinen aktuellen Namen_\n\n" +
-                                "• `/name change <Neuer Name>`\n" +
-                                "  _Ändert deinen angezeigten Namen_"
-                    }
-                }
-            ]
-        }
-    ]
-    return blocks, attachments
-
-
-def create_name_blocks(current_name=None, new_name=None):
-    blocks = [
-        {
-            "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": "👤 Namen-Verwaltung",
-                "emoji": True
-            }
-        }
-    ]
-
-    attachments = [
-        {
-            "color": "#f2c744",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": (f"*Aktueller Name:* {current_name}\n\n" if current_name else "") +
-                                (f"*Neuer Name:* {new_name}" if new_name else "") +
-                                (
-                                    f"\n\n_Tipp: Mit `/name change <neuer Name>` kannst du deinen Namen ändern._" if not new_name else "")
-                    }
-                }
-            ]
-        }
-    ]
-    return blocks, attachments
