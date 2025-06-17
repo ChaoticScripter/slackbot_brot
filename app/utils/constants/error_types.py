@@ -1,5 +1,5 @@
 #==========================
-# app/utils/constants/exceptions.py
+# app/utils/constants/error_types.py
 #==========================
 
 class BrotBotError(Exception):

@@ -1,5 +1,5 @@
 #==========================
-# app/utils/formatting.py
+# app/utils/slack_messages.py
 #==========================
 
 def format_order_summary(items):

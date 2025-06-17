@@ -1,7 +1,11 @@
+#==========================
+# app/core/user_service.py
+#==========================
+
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.models import User
-from app.utils.constants.exceptions import ValidationError
+from app.utils.constants.error_types import ValidationError
 
 
 class UserService:

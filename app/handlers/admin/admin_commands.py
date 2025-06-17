@@ -1,10 +1,13 @@
-# new/app/handlers/admin/handlers.py
+#==========================
+# app/handlers/admin/admin_commands.py
+#==========================
+
 from typing import Dict, Any
 import logging
-from app.utils.db.session import db_session
-from app.utils.logging.logger import setup_logger
-from app.core.products import ProductService
-from app.utils.constants.exceptions import ValidationError
+from app.utils.db.database import db_session
+from app.utils.logging.log_config import setup_logger
+from app.core.product_service import ProductService
+from app.utils.constants.error_types import ValidationError
 
 logger = setup_logger(__name__)
 

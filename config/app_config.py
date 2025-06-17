@@ -1,5 +1,5 @@
 #==========================
-# config/settings.py
+# config/app_config.py
 #==========================
 
 from dataclasses import dataclass, field

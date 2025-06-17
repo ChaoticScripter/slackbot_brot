@@ -1,9 +1,13 @@
+#==========================
+# app/handlers/user/user_commands.py
+#==========================
+
 from typing import Dict, Any, Optional
-from app.utils.db.session import db_session
-from app.utils.logging.logger import setup_logger
-from app.core.users import UserService
-from app.utils.constants.exceptions import ValidationError, DatabaseError
-from app.utils.formatting import create_name_blocks, create_registration_blocks
+from app.utils.db.database import db_session
+from app.utils.logging.log_config import setup_logger
+from app.core.user_service import UserService
+from app.utils.constants.error_types import ValidationError, DatabaseError
+from app.utils.slack_messages import create_name_blocks, create_registration_blocks
 
 logger = setup_logger(__name__)
 

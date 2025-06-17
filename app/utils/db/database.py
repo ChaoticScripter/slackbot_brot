@@ -1,11 +1,11 @@
 #==========================
-# app/utils/db/session.py
+# app/utils/db/database.py
 #==========================
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
-from config.settings import settings
+from config.app_config import settings
 import logging
 
 logger = logging.getLogger(__name__)

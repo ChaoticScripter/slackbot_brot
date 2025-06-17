@@ -1,3 +1,4 @@
+
 # GIT Branches
 
 |        Branches (feature)         | Priorität |  Abhängigkeit  |            Beschreibung            |          Status          |

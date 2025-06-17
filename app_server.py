@@ -1,13 +1,13 @@
 #==========================
-# run.py
+# app_server.py
 #==========================
 
 from flask import Flask
-from app.api.slack_routes import slack_routes
-from app.utils.db.session import engine
-from app.utils.logging.logger import setup_logger
-from app.scheduler import init_scheduler
-from config.settings import settings
+from app.api.slack_endpoints import slack_routes
+from app.utils.db.database import engine
+from app.utils.logging.log_config import setup_logger
+from app.reminder_jobs import init_scheduler
+from config.app_config import settings
 from app.models import Base
 import logging
 

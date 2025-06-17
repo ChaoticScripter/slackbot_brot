@@ -1,7 +1,10 @@
-# new/app/api/slack_routes.py
+#==========================
+# app/core/slack_endpoints.py
+#==========================
+
 from flask import Blueprint, request, Response
 from slack_bolt.adapter.flask import SlackRequestHandler
-from app.bot import app as slack_app
+from app.slack_bot_init import app as slack_app
 
 slack_routes = Blueprint('slack_routes', __name__)
 handler = SlackRequestHandler(slack_app)

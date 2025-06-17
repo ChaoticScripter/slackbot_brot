@@ -1,7 +1,11 @@
-# new/app/scheduler.py
+#==========================
+# app/reminder_jobs.py
+#==========================
+
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.handlers.order.handlers import OrderHandler
-from config.settings import settings
+from app.handlers.order.order_commands import OrderHandler
+from app.slack_bot_init import app as slack_app
+from config.app_config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,9 +15,11 @@ def init_scheduler() -> BackgroundScheduler:
     """Initialisiert und startet den Scheduler"""
     scheduler = BackgroundScheduler()
 
+    order_handler = OrderHandler(slack_app=slack_app)
+
     # Tägliche Erinnerung einrichten
     scheduler.add_job(
-        OrderHandler().send_daily_reminder,
+        order_handler.send_daily_reminder,
         'cron',
         hour=settings.REMINDER_HOUR,
         minute=settings.REMINDER_MINUTE

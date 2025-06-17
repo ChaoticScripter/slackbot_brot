@@ -1,10 +1,12 @@
-# new/app/core/orders.py
+#==========================
+# app/core/order_service.py
+#==========================
 
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.models import Order, OrderItem, Product, User
-from app.utils.constants.exceptions import OrderError
+from app.utils.constants.error_types import OrderError
 
 
 class OrderService:

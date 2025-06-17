@@ -4,7 +4,7 @@
 
 from db.db import Session
 from db.models import User
-from app.utils.formatting import create_name_blocks
+from app.utils.slack_messages import create_name_blocks
 from app.handlers.registration import create_registration_blocks
 
 def handle_name(ack, respond, command):

@@ -1,8 +1,12 @@
-# new/app/core/products.py
-from typing import List, Optional
+#==========================
+# app/core/product_service.py
+#==========================
+
+from typing import List, Optional, Type
 from sqlalchemy.orm import Session
 from app.models import Product
-from app.utils.constants.exceptions import ValidationError
+from app.utils.constants.error_types import ValidationError
+from models import Product
 
 
 class ProductService:
@@ -17,5 +21,5 @@ class ProductService:
         self.session.add(product)
         return product
 
-    def get_active_products(self) -> List[Product]:
+    def get_active_products(self) -> list[Type[Product]]:
         return self.session.query(Product).filter_by(active=True).all()

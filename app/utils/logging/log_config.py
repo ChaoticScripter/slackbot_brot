@@ -1,12 +1,12 @@
 #==========================
-# app/utils/logging/logger.py
+# app/utils/logging/log_config.py
 #==========================
 
 import os
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
-from config.settings import settings
+from config.app_config import settings
 
 
 def setup_logger(name: str) -> logging.Logger:
