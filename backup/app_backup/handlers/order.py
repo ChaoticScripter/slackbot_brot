@@ -5,7 +5,7 @@
 from db.db import Session
 from db.models import Order, User, Product, OrderItem
 from app.utils.slack import get_current_order_period
-from app.utils.formatting import create_order_blocks
+from app.utils.slack_messages import create_order_blocks
 from app.utils.user_validation import check_user_registration
 from app.utils.constants import ERROR_MESSAGES, COMMANDS, DB_CONSTRAINTS
 from sqlalchemy import func

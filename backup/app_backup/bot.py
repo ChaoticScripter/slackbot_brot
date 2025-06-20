@@ -1,5 +1,5 @@
 #==========================
-# app/bot.py
+# app/slack_bot_init.py
 #==========================
 
 from slack_bolt import App

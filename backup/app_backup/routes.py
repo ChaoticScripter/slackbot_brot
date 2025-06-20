@@ -4,7 +4,7 @@
 
 from flask import Flask, request, make_response
 from slack_bolt.adapter.flask import SlackRequestHandler
-from app.bot import app as slack_app
+from app.slack_bot_init import app as slack_app
 
 flask_app = Flask(__name__)
 handler = SlackRequestHandler(slack_app)

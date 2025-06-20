@@ -3,7 +3,7 @@
 #==========================
 
 # app/handlers/help.py
-from app.utils.formatting import create_help_blocks
+from app.utils.slack_messages import create_help_blocks
 
 def handle_help(ack, respond):
     ack()
