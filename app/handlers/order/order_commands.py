@@ -4,6 +4,7 @@
 
 from typing import Dict, Any, List
 import logging
+from datetime import datetime
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.order_service import OrderService
@@ -37,6 +38,56 @@ def _parse_order_command(text: str) -> List[Dict[str, Any]]:
     return items
 
 
+def _create_order_list_blocks(orders: List[Order]) -> List[Dict[str, Any]]:
+    """Erstellt die Slack-Blocks für die Bestellungsübersicht"""
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "📋 *Deine Bestellung für diese Woche:*"
+            }
+        },
+        {
+            "type": "divider"
+        }
+    ]
+
+    # Produkte nach Name gruppieren
+    all_items = {}
+    for order in orders:
+        for item in order.items:
+            product_name = item.product.name
+            if product_name in all_items:
+                all_items[product_name] += item.quantity
+            else:
+                all_items[product_name] = item.quantity
+
+    # Sortierte Bestellübersicht erstellen
+    if all_items:
+        order_details = []
+        for product_name, quantity in sorted(all_items.items()):
+            order_details.append(f"• {product_name}: {quantity}x")
+
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "\n".join(order_details)
+            }
+        })
+    else:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "❌ Keine aktiven Bestellungen vorhanden."
+            }
+        })
+
+    return blocks
+
+
 def _create_order_confirmation_blocks(order: Order) -> List[Dict[str, Any]]:
     """Erstellt die Slack-Blocks für die Bestellbestätigung"""
     blocks = [
@@ -52,7 +103,6 @@ def _create_order_confirmation_blocks(order: Order) -> List[Dict[str, Any]]:
         }
     ]
 
-    # Bestelldetails
     order_details = []
     for item in order.items:
         order_details.append(f"• {item.product.name}: {item.quantity}x")
@@ -76,8 +126,16 @@ class OrderHandler:
         """Synchrone Hauptfunktion für den /order Command"""
         try:
             command = body
+            user_id = command.get('user_id')
+
+            with db_session() as session:
+                user = session.query(User).filter_by(slack_id=user_id).first()
+                if not user:
+                    self._send_message(user_id, "Bitte registriere dich zuerst mit dem `/name` Befehl.")
+                    return
+
             if not command.get('text'):
-                self._show_help(command['user_id'])
+                self._show_help(user_id)
                 return
 
             command_parts = command['text'].split()
@@ -86,26 +144,29 @@ class OrderHandler:
             if sub_command == 'add':
                 self._handle_add_order(command)
             elif sub_command == 'list':
-                self._handle_list_orders(command['user_id'])
+                self._handle_list_orders(user_id)
             else:
-                self._show_help(command['user_id'])
+                self._show_help(user_id)
 
         except Exception as e:
             logger.error(f"Order error: {str(e)}")
-            self._send_message(command['user_id'], f"Fehler: {str(e)}")
+            if 'command' in locals():
+                self._send_message(command['user_id'], f"Fehler: {str(e)}")
 
     def _handle_add_order(self, command: Dict[str, Any]) -> None:
         """Verarbeitet eine neue Bestellung"""
         try:
             items = _parse_order_command(command.get('text', ''))
+            user_id = command['user_id']
 
             with db_session() as session:
                 service = OrderService(session)
-                order = service.add_order(command['user_id'], items)
+                order = service.add_order(user_id, items)
+                session.flush()
+                session.commit()
                 session.refresh(order)
-
                 blocks = _create_order_confirmation_blocks(order)
-                self._send_message(command['user_id'], blocks=blocks)
+                self._send_message(user_id, blocks=blocks)
 
         except OrderError as e:
             self._send_message(command['user_id'], f"Bestellungsfehler: {str(e)}")
@@ -119,14 +180,8 @@ class OrderHandler:
             with db_session() as session:
                 service = OrderService(session)
                 orders = service.get_user_orders(user_id)
-
-                if not orders:
-                    self._send_message(user_id, "Du hast keine aktiven Bestellungen.")
-                    return
-
-                for order in orders:
-                    blocks = _create_order_confirmation_blocks(order)
-                    self._send_message(user_id, blocks=blocks)
+                blocks = _create_order_list_blocks(orders)
+                self._send_message(user_id, blocks=blocks)
 
         except Exception as e:
             logger.error(f"Error listing orders: {str(e)}")
@@ -146,9 +201,11 @@ class OrderHandler:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "• `/order add [produkt] [anzahl], ...` - Neue Bestellung aufgeben\n"
-                           "  Beispiel: `/order add normal 2, vollkorn 1`\n"
-                           "• `/order list` - Aktuelle Bestellungen anzeigen"
+                    "text": (
+                        "• `/order add [produkt] [anzahl]` - Neue Bestellung aufgeben\n"
+                        "• `/order list` - Deine Bestellungen anzeigen\n"
+                        "• `/order help` - Diese Hilfe anzeigen"
+                    )
                 }
             }
         ]
@@ -156,10 +213,14 @@ class OrderHandler:
 
     def _send_message(self, user_id: str, text: str = None, blocks: List = None) -> None:
         """Sendet eine Nachricht an einen Benutzer"""
+        if not self.slack_app:
+            logger.error("Slack app not initialized")
+            return
+
         try:
             self.slack_app.client.chat_postMessage(
                 channel=user_id,
-                text=text,
+                text=text if text else "Neue Nachricht",
                 blocks=blocks
             )
         except Exception as e:
@@ -176,26 +237,28 @@ class OrderHandler:
             with db_session() as session:
                 users = session.query(User).filter_by(is_away=False).all()
 
+                reminder_blocks = [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "🔔 *Tägliche Erinnerung*\nVergiss nicht, deine Bestellung aufzugeben!"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "Nutze `/order add [produkt] [anzahl]` um zu bestellen."
+                        }
+                    }
+                ]
+
                 for user in users:
                     try:
                         self.slack_app.client.chat_postMessage(
                             channel=user.slack_id,
-                            blocks=[
-                                {
-                                    "type": "section",
-                                    "text": {
-                                        "type": "mrkdwn",
-                                        "text": "🥐 Zeit für die tägliche Brötchenbestellung!"
-                                    }
-                                },
-                                {
-                                    "type": "section",
-                                    "text": {
-                                        "type": "mrkdwn",
-                                        "text": "Bestelle mit:\n`/order add normal 2, vollkorn 1`"
-                                    }
-                                }
-                            ]
+                            blocks=reminder_blocks
                         )
                     except Exception as e:
                         logger.error(f"Failed to send reminder to user {user.slack_id}: {str(e)}")

@@ -18,8 +18,11 @@ class OrderService:
         if not user:
             raise OrderError("Benutzer nicht gefunden")
 
+        # Order erstellen und zur Session hinzufügen
         order = Order(user_id=user.user_id, order_date=datetime.now())
         self.session.add(order)
+        # Session flushen um order_id zu generieren
+        self.session.flush()
 
         for item in items:
             product = self.session.query(Product).filter_by(
@@ -36,6 +39,8 @@ class OrderService:
             )
             self.session.add(order_item)
 
+        # Änderungen in der Session speichern
+        self.session.flush()
         return order
 
     def get_user_orders(self, user_id: str) -> List[Order]:

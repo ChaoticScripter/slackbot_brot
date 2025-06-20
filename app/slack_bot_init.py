@@ -8,6 +8,9 @@ from config.app_config import settings
 from app.handlers.order.order_commands import OrderHandler
 from app.handlers.user.user_commands import UserHandler
 from app.handlers.admin.admin_commands import AdminHandler
+from app.utils.logging.log_config import setup_logger
+
+logger = setup_logger(__name__)
 
 app = App(
     token=settings.SLACK.BOT_TOKEN,
@@ -17,7 +20,7 @@ app = App(
 # Handler initialisieren
 order_handler = OrderHandler(slack_app=app)
 user_handler = UserHandler()
-admin_handler = AdminHandler()
+admin_handler = AdminHandler(slack_app=app)
 
 # Synchrone Command Handler
 @app.command("/order")
@@ -30,7 +33,7 @@ def handle_order_command(ack, body, logger):
 def handle_name_command(ack, body, logger):
     """Wrapper für den Name Command"""
     ack()
-    user_handler.handle_name(body, logger)
+    user_handler.handle_name_command(ack, body, logger)
 
 @app.command("/admin")
 def handle_admin_command(ack, body, logger):
@@ -43,3 +46,5 @@ def handle_app_home_opened(body, logger):
     """Handler für App Home Opened Event"""
     logger.info("App Home wurde geöffnet")
     logger.debug(body)
+
+handler = SlackRequestHandler(app)
