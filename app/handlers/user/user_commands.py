@@ -2,85 +2,121 @@
 # app/handlers/user/user_commands.py
 #==========================
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List
+import logging
+from difflib import get_close_matches
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.user_service import UserService
-from app.utils.constants.error_types import ValidationError, DatabaseError
+from app.utils.constants.error_types import ValidationError
+from app.models import User
 from app.utils.slack_messages import create_name_blocks, create_registration_blocks
 
 logger = setup_logger(__name__)
 
-
 class UserHandler:
-    async def handle_name_command(self, ack: callable, respond: callable, command: Dict[str, Any]) -> None:
-        """Behandelt den /name Command"""
-        await ack()
-        user_id = command["user_id"]
-        text = command.get("text", "").strip()
+    def __init__(self, slack_app=None):
+        self.slack_app = slack_app
+        self.valid_commands = {
+            'register': 'Registriere dich als Benutzer. Syntax: /name [dein_name]',
+            'change': 'Ändere deinen Namen. Syntax: /name change [neuer_name]',
+            'show': 'Zeige deinen aktuellen Namen. Syntax: /name show'
+        }
 
+    def handle_name_command(self, ack: Any, body: Dict[str, Any], logger: logging.Logger) -> None:
+        """Behandelt Name-Kommandos"""
         try:
+            user_id = body.get('user_id')
+            command = body.get('text', '').strip()
+
             with db_session() as session:
                 service = UserService(session)
                 user = service.get_user(user_id)
 
-                if not user:
-                    blocks = create_registration_blocks()
-                    await respond(blocks=blocks)
+                if not command:
+                    if user:
+                        blocks, _ = create_name_blocks(user.name)
+                        self._send_message(user_id, blocks=blocks)
+                    else:
+                        self._send_message(user_id, blocks=create_registration_blocks())
                     return
 
-                if text.startswith("change"):
-                    await self._handle_name_change(respond, user, text[6:].strip(), service)
+                parts = command.split()
+                action = parts[0].lower()
+
+                if not user and action != 'register':
+                    self._send_message(user_id, blocks=create_registration_blocks())
                     return
 
-                blocks, attachments = create_name_blocks(current_name=user.name)
-                await respond(blocks=blocks, attachments=attachments)
+                if action == 'register':
+                    if len(parts) < 2:
+                        self._send_message(user_id, f"❌ Syntax: {self.valid_commands['register']}")
+                        return
+                    name = ' '.join(parts[1:])
+                    service.register_user(user_id, name)
+                    blocks, _ = create_name_blocks(name, name)
+                    self._send_message(user_id, blocks=blocks)
+
+                elif action == 'change':
+                    if len(parts) < 2:
+                        self._send_message(user_id, f"❌ Syntax: {self.valid_commands['change']}")
+                        return
+                    new_name = ' '.join(parts[1:])
+                    service.update_user_name(user_id, new_name)
+                    blocks, _ = create_name_blocks(user.name, new_name)
+                    self._send_message(user_id, blocks=blocks)
+
+                elif action == 'show':
+                    blocks, _ = create_name_blocks(user.name)
+                    self._send_message(user_id, blocks=blocks)
+
+                else:
+                    suggestions = get_close_matches(action, self.valid_commands.keys(), n=1)
+                    if suggestions:
+                        self._send_message(user_id, f"❌ Ungültiger Befehl. Meintest du `/name {suggestions[0]}`?")
+                    else:
+                        self._show_name_help(user_id)
 
         except ValidationError as e:
-            logger.warning(f"Validation error: {str(e)}")
-            await respond(str(e))
-        except DatabaseError as e:
-            logger.error(f"Database error: {str(e)}")
-            await respond("Ein Datenbankfehler ist aufgetreten.")
+            self._send_message(user_id, f"❌ Validierungsfehler: {str(e)}")
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            await respond("Ein unerwarteter Fehler ist aufgetreten.")
+            logger.error(f"Name command error: {str(e)}")
+            self._send_message(user_id, f"❌ Fehler: {str(e)}")
 
-    async def handle_registration(self, ack: callable, body: Dict[str, Any], respond: callable) -> None:
-        """Behandelt die Benutzerregistrierung"""
-        await ack()
+    def _show_name_help(self, user_id: str) -> None:
+        """Zeigt die Hilfe-Nachricht an"""
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Verfügbare Befehle:*"
+                }
+            }
+        ]
 
-        try:
-            user_id = body["user"]["id"]
-            name = body.get("text", "").strip()
+        for command, description in self.valid_commands.items():
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"• `{description}`"
+                }
+            })
 
-            if not name:
-                await respond("Bitte gib einen Namen ein.")
-                return
+        self._send_message(user_id, blocks=blocks)
 
-            with db_session() as session:
-                service = UserService(session)
-                user = service.register_user(user_id, name)
-
-                blocks, attachments = create_name_blocks(current_name=user.name)
-                await respond(blocks=blocks, attachments=attachments)
-
-        except ValidationError as e:
-            logger.warning(f"Registration error: {str(e)}")
-            await respond(str(e))
-        except Exception as e:
-            logger.error(f"Registration error: {str(e)}")
-            await respond("Fehler bei der Registrierung.")
-
-    async def _handle_name_change(self, respond: callable, user: Any, new_name: str,
-                                  service: UserService) -> None:
-        """Behandelt die Namensänderung"""
-        if not new_name:
-            await respond("Bitte gib einen neuen Namen an.")
+    def _send_message(self, user_id: str, text: str = None, blocks: List = None) -> None:
+        """Sendet eine Nachricht an einen Benutzer"""
+        if not self.slack_app:
+            logger.error("Slack app not initialized")
             return
 
-        old_name = user.name
-        user = service.update_user_name(user.slack_id, new_name)
-
-        blocks, attachments = create_name_blocks(current_name=old_name, new_name=new_name)
-        await respond(blocks=blocks, attachments=attachments)
+        try:
+            self.slack_app.client.chat_postMessage(
+                channel=user_id,
+                text=text if text else "Neue Nachricht",
+                blocks=blocks
+            )
+        except Exception as e:
+            logger.error(f"Failed to send message to {user_id}: {str(e)}")
