@@ -4,16 +4,26 @@
 
 from typing import Dict, Any, List
 import logging
+from difflib import get_close_matches
 from app.utils.logging.log_config import setup_logger
 from app.utils.db.database import db_session
 from app.core.product_service import ProductService
-from app.models import User
+from app.models import User, Product
+from app.utils.constants.error_types import ValidationError
 
 logger = setup_logger(__name__)
 
 class AdminHandler:
     def __init__(self, slack_app=None):
         self.slack_app = slack_app
+        self.valid_commands = {
+            'product': {
+                'add': 'Fügt ein neues Produkt hinzu. Syntax: /admin product add [name] [beschreibung]',
+                'list': 'Zeigt alle aktiven Produkte an. Syntax: /admin product list',
+                'delete': 'Löscht ein Produkt. Syntax: /admin product delete [name]',
+                'update': 'Aktualisiert ein Produkt. Syntax: /admin product update [name] [neue_beschreibung]'
+            }
+        }
 
     def handle_admin(self, body: Dict[str, Any], logger: logging.Logger) -> None:
         """Behandelt Admin-Kommandos"""
@@ -24,7 +34,7 @@ class AdminHandler:
             with db_session() as session:
                 user = session.query(User).filter_by(slack_id=user_id, is_admin=True).first()
                 if not user:
-                    self._send_message(user_id, "❌ Keine Admin-Berechtigung")
+                    self._send_message(user_id, "❌ Du hast keine Admin-Berechtigung.")
                     return
 
                 if not command:
@@ -32,7 +42,15 @@ class AdminHandler:
                     return
 
                 parts = command.split()
-                action = parts[0]
+                action = parts[0].lower()
+
+                if action not in self.valid_commands:
+                    suggestions = get_close_matches(action, self.valid_commands.keys(), n=1)
+                    if suggestions:
+                        self._send_message(user_id, f"❌ Ungültiger Befehl. Meintest du `/admin {suggestions[0]}`?")
+                    else:
+                        self._show_admin_help(user_id)
+                    return
 
                 if action == 'product':
                     self._handle_product_command(session, user_id, parts[1:])
@@ -46,21 +64,93 @@ class AdminHandler:
     def _handle_product_command(self, session, user_id: str, args: List[str]) -> None:
         """Verarbeitet Produkt-bezogene Admin-Kommandos"""
         if not args:
-            self._send_message(user_id, "❌ Ungültiges Produktkommando")
+            self._send_message(user_id, self.valid_commands['product']['add'])
             return
 
         service = ProductService(session)
-        action = args[0]
+        action = args[0].lower()
 
         try:
-            if action == 'add' and len(args) >= 2:
-                product = service.add_product(args[1])
-                self._send_message(user_id, f"✅ Produkt '{product.name}' wurde hinzugefügt")
+            if action == 'add':
+                if len(args) < 3:
+                    self._send_message(user_id,
+                        "❌ Syntax: `/admin product add [name] [beschreibung]`\n"
+                        "Beispiel: `/admin product add Roggenbrot Leckeres Roggenbrot aus der Backstube`")
+                    return
+
+                name = args[1]
+                description = ' '.join(args[2:])
+
+                # Ähnliche Produkte finden
+                existing_products = session.query(Product).all()
+                similar_products = get_close_matches(name, [p.name for p in existing_products], n=1)
+                if similar_products:
+                    self._send_message(user_id,
+                        f"⚠️ Warnung: Es gibt bereits ein ähnliches Produkt: '{similar_products[0]}'\n"
+                        f"Bitte wähle einen eindeutigen Namen oder aktualisiere das bestehende Produkt.")
+                    return
+
+                product = service.add_product(name, description)
+                self._send_message(user_id,
+                    f"✅ Produkt hinzugefügt:\n"
+                    f"• Name: {product.name}\n"
+                    f"• Beschreibung: {product.description}")
+
             elif action == 'list':
                 products = service.get_active_products()
                 self._send_product_list(user_id, products)
+
+            elif action == 'delete':
+                if len(args) < 2:
+                    self._send_message(user_id, "❌ Syntax: `/admin product delete [name]`")
+                    return
+                product_name = args[1]
+                product = session.query(Product).filter_by(name=product_name).first()
+                if not product:
+                    similar = get_close_matches(product_name,
+                                             [p.name for p in service.get_active_products()],
+                                             n=1)
+                    if similar:
+                        self._send_message(user_id,
+                            f"❌ Produkt nicht gefunden. Meintest du '{similar[0]}'?")
+                    else:
+                        self._send_message(user_id, f"❌ Produkt '{product_name}' nicht gefunden")
+                    return
+                product.active = False
+                self._send_message(user_id, f"✅ Produkt '{product.name}' wurde deaktiviert")
+
+            elif action == 'update':
+                if len(args) < 3:
+                    self._send_message(user_id, "❌ Syntax: `/admin product update [name] [neue_beschreibung]`")
+                    return
+                product_name = args[1]
+                new_description = ' '.join(args[2:])
+                product = session.query(Product).filter_by(name=product_name).first()
+                if not product:
+                    similar = get_close_matches(product_name,
+                                             [p.name for p in service.get_active_products()],
+                                             n=1)
+                    if similar:
+                        self._send_message(user_id,
+                            f"❌ Produkt nicht gefunden. Meintest du '{similar[0]}'?")
+                    else:
+                        self._send_message(user_id, f"❌ Produkt '{product_name}' nicht gefunden")
+                    return
+                product.description = new_description
+                self._send_message(user_id,
+                    f"✅ Produkt aktualisiert:\n"
+                    f"• Name: {product.name}\n"
+                    f"• Neue Beschreibung: {product.description}")
+
             else:
-                self._show_admin_help(user_id)
+                closest = get_close_matches(action, self.valid_commands['product'].keys(), n=1)
+                if closest:
+                    self._send_message(user_id, f"❌ Ungültiger Befehl. Meintest du `/admin product {closest[0]}`?")
+                else:
+                    self._show_admin_help(user_id)
+
+        except ValidationError as e:
+            self._send_message(user_id, f"❌ Validierungsfehler: {str(e)}")
         except Exception as e:
             self._send_message(user_id, f"❌ Fehler: {str(e)}")
 
@@ -95,17 +185,14 @@ class AdminHandler:
             }
         ]
 
-        product_list = []
         for product in products:
-            product_list.append(f"• {product.name}")
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "\n".join(product_list)
-            }
-        })
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"• *{product.name}*\n  {product.description or 'Keine Beschreibung'}"
+                }
+            })
 
         self._send_message(user_id, blocks=blocks)
 
@@ -118,15 +205,20 @@ class AdminHandler:
                     "type": "mrkdwn",
                     "text": "*Admin Befehle:*"
                 }
-            },
-            {
+            }
+        ]
+
+        for command, subcommands in self.valid_commands.items():
+            command_text = []
+            for subcommand, description in subcommands.items():
+                command_text.append(f"• `{description}`")
+
+            blocks.append({
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "• `/admin product add [name]` - Neues Produkt hinzufügen\n"
-                           "• `/admin product list` - Alle Produkte anzeigen\n"
-                           "• `/admin help` - Diese Hilfe anzeigen"
+                    "text": "\n".join(command_text)
                 }
-            }
-        ]
+            })
+
         self._send_message(user_id, blocks=blocks)
