@@ -4,15 +4,15 @@
 
 from typing import Dict, Any, List
 import logging
-from datetime import datetime
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.order_service import OrderService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
+from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, create_daily_reminder_blocks
+from app.utils.message_blocks.attachments import create_order_confirmation_attachments
 
 logger = setup_logger(__name__)
-
 
 def _parse_order_command(text: str) -> List[Dict[str, Any]]:
     """Parst den Bestelltext in eine Liste von Produkten und Mengen"""
@@ -36,87 +36,6 @@ def _parse_order_command(text: str) -> List[Dict[str, Any]]:
             raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
 
     return items
-
-
-def _create_order_list_blocks(orders: List[Order]) -> List[Dict[str, Any]]:
-    """Erstellt die Slack-Blocks für die Bestellungsübersicht"""
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "📋 *Deine Bestellung für diese Woche:*"
-            }
-        },
-        {
-            "type": "divider"
-        }
-    ]
-
-    # Produkte nach Name gruppieren
-    all_items = {}
-    for order in orders:
-        for item in order.items:
-            product_name = item.product.name
-            if product_name in all_items:
-                all_items[product_name] += item.quantity
-            else:
-                all_items[product_name] = item.quantity
-
-    # Sortierte Bestellübersicht erstellen
-    if all_items:
-        order_details = []
-        for product_name, quantity in sorted(all_items.items()):
-            order_details.append(f"• {product_name}: {quantity}x")
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "\n".join(order_details)
-            }
-        })
-    else:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "❌ Keine aktiven Bestellungen vorhanden."
-            }
-        })
-
-    return blocks
-
-
-def _create_order_confirmation_blocks(order: Order) -> List[Dict[str, Any]]:
-    """Erstellt die Slack-Blocks für die Bestellbestätigung"""
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "✅ *Bestellung erfolgreich aufgegeben!*"
-            }
-        },
-        {
-            "type": "divider"
-        }
-    ]
-
-    order_details = []
-    for item in order.items:
-        order_details.append(f"• {item.product.name}: {item.quantity}x")
-
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": "*Bestelldetails:*\n" + "\n".join(order_details)
-        }
-    })
-
-    return blocks
-
 
 class OrderHandler:
     def __init__(self, slack_app=None):
@@ -165,8 +84,8 @@ class OrderHandler:
                 session.flush()
                 session.commit()
                 session.refresh(order)
-                blocks = _create_order_confirmation_blocks(order)
-                self._send_message(user_id, blocks=blocks)
+                attachments = create_order_confirmation_attachments(order)
+                self._send_message(user_id, attachments=attachments)
 
         except OrderError as e:
             self._send_message(command['user_id'], f"Bestellungsfehler: {str(e)}")
@@ -180,7 +99,7 @@ class OrderHandler:
             with db_session() as session:
                 service = OrderService(session)
                 orders = service.get_user_orders(user_id)
-                blocks = _create_order_list_blocks(orders)
+                blocks = create_order_list_blocks(orders)
                 self._send_message(user_id, blocks=blocks)
 
         except Exception as e:
@@ -189,29 +108,11 @@ class OrderHandler:
 
     def _show_help(self, user_id: str) -> None:
         """Zeigt die Hilfe-Nachricht an"""
-        help_blocks = [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Verfügbare Befehle:*"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": (
-                        "• `/order add [produkt] [anzahl]` - Neue Bestellung aufgeben\n"
-                        "• `/order list` - Deine Bestellungen anzeigen\n"
-                        "• `/order help` - Diese Hilfe anzeigen"
-                    )
-                }
-            }
-        ]
-        self._send_message(user_id, blocks=help_blocks)
+        blocks = create_order_help_blocks()
+        self._send_message(user_id, blocks=blocks)
 
-    def _send_message(self, user_id: str, text: str = None, blocks: List = None) -> None:
+    def _send_message(self, user_id: str, text: str = None, blocks: List = None,
+                     attachments: List = None) -> None:
         """Sendet eine Nachricht an einen Benutzer"""
         if not self.slack_app:
             logger.error("Slack app not initialized")
@@ -221,7 +122,8 @@ class OrderHandler:
             self.slack_app.client.chat_postMessage(
                 channel=user_id,
                 text=text if text else "Neue Nachricht",
-                blocks=blocks
+                blocks=blocks,
+                attachments=attachments
             )
         except Exception as e:
             logger.error(f"Failed to send message to {user_id}: {str(e)}")
@@ -236,29 +138,13 @@ class OrderHandler:
         try:
             with db_session() as session:
                 users = session.query(User).filter_by(is_away=False).all()
-
-                reminder_blocks = [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "🔔 *Tägliche Erinnerung*\nVergiss nicht, deine Bestellung aufzugeben!"
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "Nutze `/order add [produkt] [anzahl]` um zu bestellen."
-                        }
-                    }
-                ]
+                blocks = create_daily_reminder_blocks()
 
                 for user in users:
                     try:
                         self.slack_app.client.chat_postMessage(
                             channel=user.slack_id,
-                            blocks=reminder_blocks
+                            blocks=blocks
                         )
                     except Exception as e:
                         logger.error(f"Failed to send reminder to user {user.slack_id}: {str(e)}")

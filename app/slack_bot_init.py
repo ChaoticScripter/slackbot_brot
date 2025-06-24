@@ -47,4 +47,10 @@ def handle_app_home_opened(body, logger):
     logger.info("App Home wurde geöffnet")
     logger.debug(body)
 
+@app.event("message")
+def handle_message_event(body, logger):
+    """Handler für Nachrichten-Events"""
+    logger.info("Nachricht empfangen")
+    logger.debug(body)
+
 handler = SlackRequestHandler(app)

@@ -1,16 +1,11 @@
-#==========================
-# app/handlers/user/user_commands.py
-#==========================
-
 from typing import Dict, Any, Optional
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.user_service import UserService
 from app.utils.constants.error_types import ValidationError, DatabaseError
-from app.utils.slack_messages import create_name_blocks, create_registration_blocks
+from app.utils.message_blocks.messages import create_name_blocks, create_registration_blocks
 
 logger = setup_logger(__name__)
-
 
 class UserHandler:
     async def handle_name_command(self, ack: callable, respond: callable, command: Dict[str, Any]) -> None:
@@ -33,8 +28,8 @@ class UserHandler:
                     await self._handle_name_change(respond, user, text[6:].strip(), service)
                     return
 
-                blocks, attachments = create_name_blocks(current_name=user.name)
-                await respond(blocks=blocks, attachments=attachments)
+                blocks = create_name_blocks(current_name=user.name)
+                await respond(blocks=blocks)
 
         except ValidationError as e:
             logger.warning(f"Validation error: {str(e)}")
@@ -61,9 +56,8 @@ class UserHandler:
             with db_session() as session:
                 service = UserService(session)
                 user = service.register_user(user_id, name)
-
-                blocks, attachments = create_name_blocks(current_name=user.name)
-                await respond(blocks=blocks, attachments=attachments)
+                blocks = create_name_blocks(current_name=user.name)
+                await respond(blocks=blocks)
 
         except ValidationError as e:
             logger.warning(f"Registration error: {str(e)}")
@@ -73,7 +67,7 @@ class UserHandler:
             await respond("Fehler bei der Registrierung.")
 
     async def _handle_name_change(self, respond: callable, user: Any, new_name: str,
-                                  service: UserService) -> None:
+                                service: UserService) -> None:
         """Behandelt die Namensänderung"""
         if not new_name:
             await respond("Bitte gib einen neuen Namen an.")
@@ -81,6 +75,5 @@ class UserHandler:
 
         old_name = user.name
         user = service.update_user_name(user.slack_id, new_name)
-
-        blocks, attachments = create_name_blocks(current_name=old_name, new_name=new_name)
-        await respond(blocks=blocks, attachments=attachments)
+        blocks = create_name_blocks(current_name=old_name, new_name=new_name)
+        await respond(blocks=blocks)

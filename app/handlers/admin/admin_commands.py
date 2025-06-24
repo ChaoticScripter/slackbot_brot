@@ -8,6 +8,7 @@ from app.utils.logging.log_config import setup_logger
 from app.utils.db.database import db_session
 from app.core.product_service import ProductService
 from app.models import User
+from app.utils.message_blocks.messages import create_admin_help_blocks, create_product_list_blocks
 
 logger = setup_logger(__name__)
 
@@ -81,52 +82,10 @@ class AdminHandler:
 
     def _send_product_list(self, user_id: str, products: List) -> None:
         """Sendet eine formatierte Produktliste"""
-        if not products:
-            self._send_message(user_id, "Keine aktiven Produkte vorhanden")
-            return
-
-        blocks = [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Aktive Produkte:*"
-                }
-            }
-        ]
-
-        product_list = []
-        for product in products:
-            product_list.append(f"• {product.name}")
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "\n".join(product_list)
-            }
-        })
-
+        blocks = create_product_list_blocks(products)
         self._send_message(user_id, blocks=blocks)
 
     def _show_admin_help(self, user_id: str) -> None:
         """Zeigt Admin-Hilfenachricht"""
-        blocks = [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Admin Befehle:*"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "• `/admin product add [name]` - Neues Produkt hinzufügen\n"
-                           "• `/admin product list` - Alle Produkte anzeigen\n"
-                           "• `/admin help` - Diese Hilfe anzeigen"
-                }
-            }
-        ]
+        blocks = create_admin_help_blocks()
         self._send_message(user_id, blocks=blocks)
