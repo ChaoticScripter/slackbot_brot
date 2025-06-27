@@ -10,7 +10,11 @@ from app.core.order_service import OrderService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
 from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, create_daily_reminder_blocks
-from app.utils.message_blocks.attachments import create_order_confirmation_attachments
+from app.utils.message_blocks.attachments import (
+    create_order_confirmation_attachments,
+    create_order_list_attachments
+)
+from datetime import datetime, timedelta
 
 logger = setup_logger(__name__)
 
@@ -94,13 +98,52 @@ class OrderHandler:
             self._send_message(command['user_id'], "Ein unerwarteter Fehler ist aufgetreten.")
 
     def _handle_list_orders(self, user_id: str) -> None:
-        """Zeigt die aktuellen Bestellungen des Benutzers an"""
+        """Zeigt die Bestellungen der aktuellen Mittwoch-Woche an"""
         try:
             with db_session() as session:
-                service = OrderService(session)
-                orders = service.get_user_orders(user_id)
-                blocks = create_order_list_blocks(orders)
-                self._send_message(user_id, blocks=blocks)
+                # Aktuelle Zeit und Wochentag
+                now = datetime.now()
+                current_weekday = now.weekday()
+
+                # Letzten Mittwoch 10:00 Uhr finden
+                days_since_wednesday = (current_weekday - 2) % 7
+                last_wednesday = now - timedelta(days=days_since_wednesday)
+                period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
+
+                # Wenn es Mittwoch vor 10 Uhr ist, nehmen wir den Mittwoch der Vorwoche
+                if current_weekday == 2 and now.hour < 10:
+                    period_start = period_start - timedelta(days=7)
+
+                # Nächsten Mittwoch 09:59 Uhr
+                period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+                # Bestellungen abrufen
+                user = session.query(User).filter_by(slack_id=user_id).first()
+                if not user:
+                    self._send_message(user_id, "Benutzer nicht gefunden")
+                    return
+
+                # Bestellungen abrufen
+                orders = session.query(Order) \
+                    .filter(
+                    Order.user_id == user.user_id,
+                    Order.order_date.between(period_start, period_end)
+                ) \
+                    .order_by(Order.order_date.asc()) \
+                    .all()
+
+                # Letzte Bestellung für den Zeitstempel
+                latest_order = session.query(Order) \
+                    .filter(
+                    Order.user_id == user.user_id,
+                    Order.order_date.between(period_start, period_end)
+                ) \
+                    .order_by(Order.order_date.desc()) \
+                    .first()
+
+                # Attachments erstellen und senden
+                attachments = create_order_list_attachments(orders, period_start, period_end, latest_order)
+                self._send_message(user_id, attachments=attachments)
 
         except Exception as e:
             logger.error(f"Error listing orders: {str(e)}")
@@ -112,21 +155,36 @@ class OrderHandler:
         self._send_message(user_id, blocks=blocks)
 
     def _send_message(self, user_id: str, text: str = None, blocks: List = None,
-                     attachments: List = None) -> None:
+                      attachments: List = None) -> None:
         """Sendet eine Nachricht an einen Benutzer"""
         if not self.slack_app:
             logger.error("Slack app not initialized")
             return
 
         try:
+            # Fallback-Text für verschiedene Nachrichtentypen
+            fallback_text = text or self._get_fallback_text(blocks, attachments)
+
             self.slack_app.client.chat_postMessage(
                 channel=user_id,
-                text=text if text else "Neue Nachricht",
+                text=fallback_text,  # Immer einen Fallback-Text angeben
                 blocks=blocks,
                 attachments=attachments
             )
         except Exception as e:
             logger.error(f"Failed to send message to {user_id}: {str(e)}")
+
+    def _get_fallback_text(self, blocks: List = None, attachments: List = None) -> str:
+        """Generiert einen sinnvollen Fallback-Text basierend auf dem Nachrichtentyp"""
+        if attachments:
+            return "Neue Bestellbestätigung"
+        elif blocks:
+            # Nachrichtentyp aus den Blocks ermitteln
+            if blocks and blocks[0].get("text", {}).get("text"):
+                # Header-Text als Fallback verwenden
+                return blocks[0]["text"]["text"]
+
+        return "Neue Nachricht vom BrotBot"
 
     def send_daily_reminder(self) -> None:
         """Sendet tägliche Erinnerungen an alle aktiven Benutzer"""

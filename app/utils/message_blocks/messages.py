@@ -3,36 +3,31 @@
 #==========================
 
 from typing import Dict, List
+from app.utils.message_blocks.constants import COLORS, EMOJIS, BLOCK_DEFAULTS
+from datetime import datetime
 
 def create_admin_help_blocks() -> List[Dict]:
     return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['ADMIN']} Admin-Befehle"),
+        BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Admin Befehle:*"
-            }
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "• `/admin product add [name]` - Neues Produkt hinzufügen\n"
-                       "• `/admin product list` - Alle Produkte anzeigen\n"
-                       "• `/admin help` - Diese Hilfe anzeigen"
+                "text": (
+                    "*Produkt-Verwaltung:*\n"
+                    f"• `/admin product add [name]` {EMOJIS['NEW']} Neues Produkt hinzufügen\n"
+                    f"• `/admin product list` {EMOJIS['LIST']} Alle Produkte anzeigen\n"
+                    f"• `/admin help` {EMOJIS['INFO']} Diese Hilfe anzeigen"
+                )
             }
         }
     ]
 
 def create_product_list_blocks(products: List) -> List[Dict]:
     blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Aktive Produkte:*"
-            }
-        }
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Produktübersicht"),
+        BLOCK_DEFAULTS["DIVIDER"]
     ]
 
     if not products:
@@ -40,42 +35,45 @@ def create_product_list_blocks(products: List) -> List[Dict]:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "Keine aktiven Produkte vorhanden"
+                "text": f"{EMOJIS['INFO']} Keine aktiven Produkte vorhanden"
             }
         })
         return blocks
 
-    product_list = []
     for product in products:
-        product_list.append(f"• {product.name}")
-
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": "\n".join(product_list)
-        }
-    })
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"• *{product.name}*"
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Bestellen"
+                },
+                "value": f"order_{product.product_id}",
+                "action_id": "order_product"
+            }
+        })
 
     return blocks
 
 def create_order_help_blocks() -> List[Dict]:
     return [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Verfügbare Befehle:*"
-            }
-        },
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['ORDER']} Bestellhilfe"),
+        BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    "• `/order add [produkt] [anzahl]` - Neue Bestellung aufgeben\n"
-                    "• `/order list` - Deine Bestellungen anzeigen\n"
-                    "• `/order help` - Diese Hilfe anzeigen"
+                    "*Verfügbare Befehle:*\n"
+                    f"• `/order add [produkt] [anzahl]` {EMOJIS['NEW']} Neue Bestellung\n"
+                    f"• `/order list` {EMOJIS['LIST']} Bestellungen anzeigen\n"
+                    f"• `/order save [name]` {EMOJIS['SAVE']} Bestellung speichern\n"
+                    f"• `/order help` {EMOJIS['INFO']} Diese Hilfe"
                 )
             }
         }
@@ -83,108 +81,133 @@ def create_order_help_blocks() -> List[Dict]:
 
 def create_order_list_blocks(orders: List) -> List[Dict]:
     blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "📋 *Deine Bestellung für diese Woche:*"
-            }
-        },
-        {
-            "type": "divider"
-        }
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['LIST']} Bestellübersicht"),
+        BLOCK_DEFAULTS["CONTEXT"](f"Stand: {EMOJIS['TIME']} " +
+                                datetime.now().strftime("%d.%m.%Y %H:%M")),
+        BLOCK_DEFAULTS["DIVIDER"]
     ]
 
-    all_items = {}
+    if not orders:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{EMOJIS['INFO']} Keine aktiven Bestellungen"
+            }
+        })
+        return blocks
+
+    # Bestellungen nach Datum gruppieren
+    grouped_orders = {}
     for order in orders:
-        for item in order.items:
-            product_name = item.product.name
-            if product_name in all_items:
-                all_items[product_name] += item.quantity
-            else:
-                all_items[product_name] = item.quantity
+        date = order.order_date.strftime("%d.%m.%Y")
+        if date not in grouped_orders:
+            grouped_orders[date] = []
+        grouped_orders[date].extend(order.items)
 
-    if all_items:
-        order_details = []
-        for product_name, quantity in sorted(all_items.items()):
-            order_details.append(f"• {product_name}: {quantity}x")
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "\n".join(order_details)
-            }
-        })
-    else:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "❌ Keine aktiven Bestellungen vorhanden."
-            }
-        })
-
-    return blocks
-
-def create_name_blocks(current_name: str, new_name: str = None) -> List[Dict]:
-    blocks = []
-
-    if new_name:
+    for date, items in grouped_orders.items():
         blocks.extend([
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"✅ Dein Name wurde geändert von *{current_name}* zu *{new_name}*"
+                    "text": f"*{EMOJIS['CALENDAR']} {date}*"
                 }
             }
         ])
-    else:
-        blocks.extend([
+
+        # Produkte gruppieren und summieren
+        product_totals = {}
+        for item in items:
+            name = item.product.name
+            if name in product_totals:
+                product_totals[name] += item.quantity
+            else:
+                product_totals[name] = item.quantity
+
+        # Sortierte Produktliste ausgeben
+        order_list = []
+        for product, quantity in sorted(product_totals.items()):
+            order_list.append(f"• {product}: {quantity}x")
+
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "\n".join(order_list)
+            }
+        })
+        blocks.append(BLOCK_DEFAULTS["DIVIDER"])
+
+    return blocks
+
+def create_daily_reminder_blocks() -> List[Dict]:
+    return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['REMINDER']} Tägliche Erinnerung"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"{EMOJIS['INFO']} Vergiss nicht, deine Bestellung aufzugeben!\n"
+                    f"Verwende `/order add [produkt] [anzahl]` um eine neue Bestellung zu erstellen."
+                )
+            }
+        }
+    ]
+
+def create_name_blocks(current_name: str = None, new_name: str = None) -> List[Dict]:
+    if new_name:
+        # Name change confirmation
+        return [
+            BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['SUCCESS']} Name geändert"),
+            BLOCK_DEFAULTS["DIVIDER"],
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"Dein aktueller Name ist: *{current_name}*"
+                    "text": f"*Alter Name:* {current_name}\n*Neuer Name:* {new_name}"
+                }
+            }
+        ]
+    else:
+        # Show current name
+        return [
+            BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['USER']} Benutzer-Information"),
+            BLOCK_DEFAULTS["DIVIDER"],
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Aktueller Name:* {current_name or 'Nicht gesetzt'}"
                 }
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "Um deinen Namen zu ändern, nutze:\n`/name change <neuer_name>`"
+                    "text": f"*Tipp:* Verwende `/name change [neuer name]` um deinen Namen zu ändern."
                 }
             }
-        ])
-
-    return blocks
+        ]
 
 def create_registration_blocks() -> List[Dict]:
     return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['NEW']} Registrierung erforderlich"),
+        BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "Du bist noch nicht registriert! Bitte registriere dich zuerst mit:\n`/name <dein_name>`"
+                "text": (
+                    f"{EMOJIS['INFO']} Du bist noch nicht registriert!\n"
+                    f"Bitte registriere dich zuerst, um den Bot verwenden zu können.\n\n"
+                    f"*Verwende:* `/user register [dein name]`"
+                )
             }
         }
     ]
 
-def create_daily_reminder_blocks() -> List[Dict]:
-    return [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "🔔 *Tägliche Erinnerung*\nVergiss nicht, deine Bestellung aufzugeben!"
-            }
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "Nutze `/order add [produkt] [anzahl]` um zu bestellen."
-            }
-        }
-    ]
+# Weitere Message-Block-Funktionen bleiben ähnlich,
+# werden aber mit den neuen Konstanten und Layouts aktualisiert
