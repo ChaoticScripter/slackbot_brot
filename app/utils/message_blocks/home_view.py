@@ -70,7 +70,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                     f"• `/order add [produkt] [anzahl]` {EMOJIS['NEW']} Neue Bestellung\n"
                     f"• `/order list` {EMOJIS['LIST']} Bestellungen anzeigen\n"
                     f"• `/order save [name]` {EMOJIS['SAVE']} Bestellung speichern\n"
-                    f"• `/order help` {EMOJIS['INFO']} Hilfe anzeigen"
+                    f"• `/order help` {EMOJIS['INFO']} Hilfe anzeigen\n"
                 )
             }
         }

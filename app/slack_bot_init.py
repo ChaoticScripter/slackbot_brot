@@ -36,10 +36,10 @@ def handle_order_command(ack, body, logger):
 
 
 @app.command("/name")
-async def handle_name_command(ack, body, logger):
+def handle_name_command(ack, body, logger):
     """Wrapper für den Name Command"""
-    await ack()
-    await user_handler.handle_name_command(ack, body, logger)
+    ack()
+    user_handler.handle_name_command(body, logger)
 
 
 @app.command("/admin")
@@ -90,7 +90,6 @@ def handle_message_event(body, logger):
     try:
         logger.info("Nachricht empfangen")
         logger.debug(body)
-        # Hier können weitere Nachrichtenverarbeitungen implementiert werden
     except Exception as e:
         logger.error(f"Error handling message: {str(e)}")
 
