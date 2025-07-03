@@ -1,4 +1,18 @@
+## Adding next:
+- Functions: /order save , /order savelist , /order remove , /order productlist
+- Fully integrated Reminder with Commands
+- Automatic sending all orders to a specific User
+- Admin Function for managing user to send Orders
 
+## After that:
+- Buttons for better useability
+- prettytable for better output in Slack
+- better error handling
+- More good looking Home-View
+- Away and Vacation Mode
+
+
+---
 # GIT Branches
 
 |        Branches (feature)         | Priorität |  Abhängigkeit  |            Beschreibung            |          Status          |
