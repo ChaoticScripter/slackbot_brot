@@ -59,7 +59,7 @@ def create_order_confirmation_attachments(order) -> List[Dict]:
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"{EMOJIS['INFO']} Verwende `/order list` um deine Bestellungen anzuzeigen"
+                        "text": f"{EMOJIS['INFO']} Verwende `/order list` um deine gesamte Bestellungen anzuzeigen"
                     }
                 ]
             }
@@ -104,3 +104,57 @@ def create_order_list_attachments(orders: List, period_start: datetime, period_e
             }
         ]
     }]
+
+def create_name_blocks(current_name: str = None, new_name: str = None) -> List[Dict]:
+    """Erstellt Message Blocks für Namen/Namensänderung"""
+    if new_name:
+        # Name change confirmation
+        return [
+            BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['SUCCESS']} Name geändert"),
+            BLOCK_DEFAULTS["DIVIDER"],
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Alter Name:* {current_name}\n*Neuer Name:* {new_name}"
+                }
+            }
+        ]
+    else:
+        # Show current name
+        return [
+            BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['USER']} Benutzer-Information"),
+            BLOCK_DEFAULTS["DIVIDER"],
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Aktueller Name:* {current_name or 'Nicht gesetzt'}"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Tipp:* Verwende `/user changename [neuer name]` um deinen Namen zu ändern."
+                }
+            }
+        ]
+
+def create_registration_blocks() -> List[Dict]:
+    """Erstellt Message Blocks für die Registrierungsaufforderung"""
+    return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['NEW']} Registrierung erforderlich"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"{EMOJIS['INFO']} Du bist noch nicht registriert!\n"
+                    f"Bitte registriere dich zuerst, um den Bot verwenden zu können.\n\n"
+                    f"*Verwende:* `/user register [dein name]`"
+                )
+            }
+        }
+    ]

@@ -1,10 +1,10 @@
-#==========================
+# ==========================
 # app/slack_bot_init.py
-#==========================
+# ==========================
 
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
-from datetime import datetime, timedelta
+from datetime import datetime
 from config.app_config import settings
 from app.handlers.order.order_commands import OrderHandler
 from app.handlers.user.user_commands import UserHandler
@@ -16,6 +16,7 @@ from app.models import User, Order
 
 logger = setup_logger(__name__)
 
+# Slack App initialisieren
 app = App(
     token=settings.SLACK.BOT_TOKEN,
     signing_secret=settings.SLACK.SIGNING_SECRET
@@ -23,30 +24,8 @@ app = App(
 
 # Handler initialisieren
 order_handler = OrderHandler(slack_app=app)
-user_handler = UserHandler()
+user_handler = UserHandler(slack_app=app)
 admin_handler = AdminHandler(slack_app=app)
-
-
-# Synchrone Command Handler
-@app.command("/order")
-def handle_order_command(ack, body, logger):
-    """Wrapper für den Order Command"""
-    ack()
-    order_handler.handle_order(body, logger)
-
-
-@app.command("/name")
-def handle_name_command(ack, body, logger):
-    """Wrapper für den Name Command"""
-    ack()
-    user_handler.handle_name_command(body, logger)
-
-
-@app.command("/admin")
-def handle_admin_command(ack, body, logger):
-    """Wrapper für den Admin Command"""
-    ack()
-    admin_handler.handle_admin(body, logger)
 
 
 @app.event("app_home_opened")
@@ -56,45 +35,47 @@ def handle_app_home_opened(client, event, logger):
         user_id = event["user"]
 
         with db_session() as session:
-            # Benutzer abrufen
             user = session.query(User).filter_by(slack_id=user_id).first()
             if not user:
                 logger.warning(f"User {user_id} not found")
                 return
 
-            # Letzte Bestellungen des Benutzers abrufen (z.B. letzte 30 Tage)
-            recent_orders = session.query(Order) \
-                .filter(
-                Order.user_id == user.user_id,
-                Order.order_date >= datetime.now() - timedelta(days=30)
-            ) \
-                .order_by(Order.order_date.desc()) \
-                .limit(5) \
+            recent_orders = (
+                session.query(Order)
+                .filter(Order.user_id == user.user_id)
+                .order_by(Order.order_date.desc())
+                .limit(5)
                 .all()
-
-            # Home View erstellen und publishen
-            view = create_home_view(user, recent_orders)
-
-            client.views_publish(
-                user_id=user_id,
-                view=view
             )
+
+            view = create_home_view(user, recent_orders)
+            client.views_publish(user_id=user_id, view=view)
 
     except Exception as e:
         logger.error(f"Error publishing home view: {str(e)}")
 
 
-@app.event("message")
-def handle_message_event(body, logger):
-    """Handler für Nachrichten-Events"""
-    try:
-        logger.info("Nachricht empfangen")
-        logger.debug(body)
-    except Exception as e:
-        logger.error(f"Error handling message: {str(e)}")
+@app.command("/user")
+def handle_user_command(ack, body, logger):
+    """Handler für den /name Command"""
+    ack()
+    user_handler.handle_user_command(body, logger)
 
 
-# Error Handler
+@app.command("/order")
+def handle_order_command(ack, body, logger):
+    """Handler für den /order Command"""
+    ack()
+    order_handler.handle_order(body, logger)
+
+
+@app.command("/admin")
+def handle_admin_command(ack, body, logger):
+    """Handler für den /admin Command"""
+    ack()
+    admin_handler.handle_admin(body, logger)
+
+
 @app.error
 def handle_errors(error, body, logger):
     """Globaler Error Handler"""

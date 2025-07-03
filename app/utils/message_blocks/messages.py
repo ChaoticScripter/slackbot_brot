@@ -2,7 +2,7 @@
 # app/utils/message_blocks/messages.py
 #==========================
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from app.utils.message_blocks.constants import COLORS, EMOJIS, BLOCK_DEFAULTS
 from datetime import datetime
 
