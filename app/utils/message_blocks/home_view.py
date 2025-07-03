@@ -39,17 +39,18 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": f"{EMOJIS['NEW']} Neue Bestellung"
+                        "text": f"{EMOJIS['WARNING']} Neue Bestellung (WiP)"
                     },
-                    "style": "primary",
+                    "style": "danger",
                     "action_id": "new_order"
                 },
                 {
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": f"{EMOJIS['LIST']} Meine Bestellungen"
+                        "text": f"{EMOJIS['WARNING']} Meine Bestellungen (WiP)"
                     },
+                    "style": "danger",
                     "action_id": "list_orders"
                 }
             ]
@@ -69,10 +70,10 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 "text": (
                     f"• `/order add` {EMOJIS['NEW']} Neue Bestellung\n"
                     f"• `/order list` {EMOJIS['LIST']} Aktuelle Bestellung anzeigen\n"
-                    f"• `/order save` {EMOJIS['SAVE']} Bestellung speichern\n"
-                    f"• `/order savelist` {EMOJIS['SAVE']} Gespeicherte Bestellungen anzeigen\n"
-                    f"• `/order remove` {EMOJIS['SAVE']} Produkt aus Bestellung löschen\n"
-                    f"• `/order productlist` {EMOJIS['SAVE']} Aktive Produkte anzeigen\n"
+                    f"• ~`/order save` {EMOJIS['ERROR']} Bestellung speichern~ *COMING SOON!*\n"
+                    f"• ~`/order savelist` {EMOJIS['ERROR']} Gespeicherte Bestellungen anzeigen~ *COMING SOON!*\n"
+                    f"• ~`/order remove` {EMOJIS['ERROR']} Produkt aus Bestellung löschen~ *COMING SOON!*\n"
+                    f"• ~`/order productlist` {EMOJIS['ERROR']} Aktive Produkte anzeigen~ *COMING SOON!*\n"
                     f"• `/order` {EMOJIS['INFO']} Hilfe anzeigen\n\n"
                     f"• `/user register` {EMOJIS['USER']} In die Datenbank registrieren\n"
                     f"• `/user changename` {EMOJIS['SETTINGS']} Name in der Datenbank ändern\n"
@@ -95,17 +96,21 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             }
         ])
 
+        weekday_map = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
         for order in recent_orders:
             order_items = []
             for item in order.items:
                 order_items.append(f"• {item.product.name}: {item.quantity}x")
+
+            weekday = weekday_map[order.order_date.weekday()]  # 0=Mo, ..., 6=So
 
             blocks.append({
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": (
-                        f"*{order.order_date.strftime('%d.%m.%Y %H:%M')}*\n"
+                        f"*{weekday}, {order.order_date.strftime('%d.%m.%Y - %H:%M')}*\n"
                         f"{'\n'.join(order_items)}"
                     )
                 }
@@ -118,7 +123,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Status:*"
+                "text": "*Allgemeine Infos:*"
             },
             "fields": [
                 {
