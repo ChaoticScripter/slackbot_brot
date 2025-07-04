@@ -7,6 +7,7 @@ import logging
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.order_service import OrderService
+from app.core.saved_order_service import SavedOrderService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
 from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, create_daily_reminder_blocks
@@ -54,7 +55,7 @@ class OrderHandler:
             with db_session() as session:
                 user = session.query(User).filter_by(slack_id=user_id).first()
                 if not user:
-                    self._send_message(user_id, "Bitte registriere dich zuerst mit dem `/name` Befehl.")
+                    self._send_message(user_id, "Bitte registriere dich zuerst mit dem `/user register` Befehl.")
                     return
 
             if not command.get('text'):
@@ -65,7 +66,20 @@ class OrderHandler:
             sub_command = command_parts[0] if command_parts else None
 
             if sub_command == 'add':
+                # Prüfen ob gespeicherte Bestellung
+                if len(command_parts) == 2:
+                    with db_session() as session:
+                        service = SavedOrderService(session)
+                        saved = service.get_saved_order(user_id, command_parts[1])
+                        if saved:
+                            # Originalen add Befehl ausführen
+                            command['text'] = f"add {saved.order_string}"
+
                 self._handle_add_order(command)
+            elif sub_command == 'save':
+                self._handle_save_order(command)
+            elif sub_command == 'savelist':
+                self._handle_savelist(user_id)
             elif sub_command == 'list':
                 self._handle_list_orders(user_id)
             else:
@@ -209,3 +223,56 @@ class OrderHandler:
 
         except Exception as e:
             logger.error(f"Failed to send daily reminders: {str(e)}")
+
+    def _handle_save_order(self, command: Dict[str, Any]) -> None:
+        """Speichert eine Bestellvorlage"""
+        try:
+            text = command.get('text', '').strip()
+            if not text.startswith('save '):
+                raise OrderError("Ungültiges Format. Verwende: /order save [name] [produkt] [anzahl], ...")
+
+            parts = text[5:].split(' ', 1)
+            if len(parts) != 2:
+                raise OrderError("Name und Bestellung erforderlich")
+
+            name, order = parts
+
+            with db_session() as session:
+                service = SavedOrderService(session)
+                saved = service.save_order(command['user_id'], name, order)
+                session.commit()
+
+                self._send_message(
+                    command['user_id'],
+                    text=f"✅ Bestellung '{saved.name}' wurde gespeichert"
+                )
+
+        except Exception as e:
+            logger.error(f"Save order error: {str(e)}")
+            self._send_message(command['user_id'], f"Fehler: {str(e)}")
+
+    def _handle_savelist(self, user_id: str) -> None:
+        """Zeigt gespeicherte Bestellvorlagen"""
+        try:
+            with db_session() as session:
+                service = SavedOrderService(session)
+                saved_orders = service.list_saved_orders(user_id)
+
+                if not saved_orders:
+                    self._send_message(user_id, "Keine gespeicherten Bestellungen gefunden")
+                    return
+
+                # Format: "- Name: Bestellung"
+                order_list = "\n".join([
+                    f"- *{order.name}*: {order.order_string}"
+                    for order in saved_orders
+                ])
+
+                self._send_message(
+                    user_id,
+                    text=f"📋 Gespeicherte Bestellungen:\n{order_list}"
+                )
+
+        except Exception as e:
+            logger.error(f"List saved orders error: {str(e)}")
+            self._send_message(user_id, f"Fehler: {str(e)}")

@@ -70,10 +70,11 @@ def create_order_help_blocks() -> List[Dict]:
                 "type": "mrkdwn",
                 "text": (
                     "*Verfügbare Befehle:*\n"
-                    f"• `/order add [produkt] [anzahl]` {EMOJIS['NEW']} Neue Bestellung\n"
-                    f"• `/order list` {EMOJIS['LIST']} Bestellungen anzeigen\n"
-                    f"• `/order save [name]` {EMOJIS['SAVE']} Bestellung speichern\n"
-                    f"• `/order help` {EMOJIS['INFO']} Diese Hilfe"
+                    f"• `/order add [produkt] [anzahl], ...` - {EMOJIS['NEW']} Neue Bestellung aufgeben\n"
+                    f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
+                    f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"
+                    f"• `/order list` - {EMOJIS['LIST']} Aktuelle Bestellungen anzeigen\n"
+                    f"• `/order help` - {EMOJIS['INFO']} Diese Hilfe\n"
                 )
             }
         }
