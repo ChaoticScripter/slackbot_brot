@@ -70,13 +70,13 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 "text": (
                     f"• `/order add` {EMOJIS['NEW']} Neue Bestellung\n"
                     f"• `/order list` {EMOJIS['LIST']} Aktuelle Bestellung anzeigen\n"
-                    f"• ~`/order save` {EMOJIS['ERROR']} Bestellung speichern~ *COMING SOON!*\n"
-                    f"• ~`/order savelist` {EMOJIS['ERROR']} Gespeicherte Bestellungen anzeigen~ *COMING SOON!*\n"
+                    f"• `/order save` Bestellung speichern\n"
+                    f"• `/order savelist` Gespeicherte Bestellungen anzeigen\n"
                     f"• ~`/order remove` {EMOJIS['ERROR']} Produkt aus Bestellung löschen~ *COMING SOON!*\n"
                     f"• ~`/order productlist` {EMOJIS['ERROR']} Aktive Produkte anzeigen~ *COMING SOON!*\n"
                     f"• `/order` {EMOJIS['INFO']} Hilfe anzeigen\n\n"
                     f"• `/user register` {EMOJIS['USER']} In die Datenbank registrieren\n"
-                    f"• `/user changename` {EMOJIS['SETTINGS']} Name in der Datenbank ändern\n"
+                    f"• `/user name` {EMOJIS['SETTINGS']} Name in der Datenbank ändern\n"
                     f"• `/user` {EMOJIS['INFO']} Hilfe anzeigen\n"
                 )
             }
