@@ -4,6 +4,7 @@
 
 from typing import Dict, Any, List
 import logging
+from sqlalchemy import func
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.order_service import OrderService
@@ -83,6 +84,8 @@ class OrderHandler:
                 self._handle_savelist(user_id)
             elif sub_command == 'list':
                 self._handle_list_orders(user_id)
+            elif sub_command == 'remove':
+                self._handle_remove_order(command)
             else:
                 self._show_help(user_id)
 
@@ -278,53 +281,86 @@ class OrderHandler:
             logger.error(f"List saved orders error: {str(e)}")
             self._send_message(user_id, f"Fehler: {str(e)}")
 
-    def _parse_remove_command(text: str) -> List[Dict[str, Any]]:
-        """Parst den Entfernen-Befehl"""
-        if not text.startswith('remove '):
-            raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl]")
+    def _parse_remove_command(self, command_text: str) -> List[Dict[str, Any]]:
+        """Parst den Remove-Command und normalisiert die Produktnamen"""
+        if not command_text.startswith('remove '):
+            raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl], ...")
+
+        # Entferne das "remove " am Anfang
+        items_text = command_text[7:].strip()
+        if not items_text:
+            raise OrderError("Keine Produkte angegeben")
 
         items = []
-        parts = text[7:].split(',')
+        parts = items_text.split(',')
 
         for part in parts:
+            item_parts = part.strip().split()
+            if len(item_parts) < 2:
+                raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
+
             try:
-                name, quantity = part.strip().split()
-                quantity = int(quantity)
+                # Extrahiere Menge als letztes Element
+                quantity = int(item_parts[-1])
                 if quantity <= 0:
-                    raise OrderError(f"Ungültige Menge für {name}: {quantity}")
+                    raise OrderError(f"Ungültige Menge für {' '.join(item_parts[:-1])}: {quantity}")
+
+                # Produktname ist alles davor
+                product_name = ' '.join(item_parts[:-1])
+
                 items.append({
-                    'name': name.lower(),
+                    'name': product_name.title(),  # Normalisiere Groß-/Kleinschreibung
                     'quantity': quantity
                 })
             except ValueError:
-                raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
+                raise OrderError(f"Ungültige Menge bei: {part}")
 
         return items
 
     def _handle_remove_order(self, command: Dict[str, Any]) -> None:
         """Verarbeitet das Entfernen von Produkten"""
         try:
-            items = self._parse_remove_command(command.get('text', ''))
-            user_id = command['user_id']
+            if not command.get('text', '').startswith('remove '):
+                raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl]")
+
+            items = []
+            parts = command['text'][7:].split(',')  # "remove " entfernen und nach Komma splitten
+
+            for part in parts:
+                try:
+                    product_parts = part.strip().split()
+                    if len(product_parts) < 2:
+                        raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
+
+                    quantity = int(product_parts[-1])  # Letztes Element ist die Anzahl
+                    product_name = ' '.join(product_parts[:-1])  # Rest ist der Produktname
+
+                    if quantity <= 0:
+                        raise OrderError(f"Ungültige Menge für {product_name}: {quantity}")
+
+                    items.append({
+                        'name': product_name,
+                        'quantity': quantity
+                    })
+                except ValueError:
+                    raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
 
             with db_session() as session:
                 service = OrderService(session)
-                order, items_to_remove = service.remove_items_preview(user_id, items)
+                order = service.remove_items(command['user_id'], items)
+                session.commit()
 
-                blocks = create_remove_preview_blocks(order, items_to_remove)
+                # Bestätigung senden
+                attachments = create_order_confirmation_attachments(order)
                 self._send_message(
-                    user_id,
-                    blocks=blocks,
-                    text="Vorschau der Bestellungsänderung"
+                    command['user_id'],
+                    text="✅ Produkte wurden erfolgreich aus der Bestellung entfernt",
+                    attachments=attachments
                 )
 
-                # Nach 30 Sekunden automatisch abbrechen
-                self.slack_app.client.chat_scheduleMessage(
-                    channel=user_id,
-                    post_at=int(time.time() + 30),
-                    text="Zeit abgelaufen - Änderung abgebrochen"
-                )
-
-        except Exception as e:
+        except OrderError as e:
             logger.error(f"Remove order error: {str(e)}")
-            self._send_message(command['user_id'], f"Fehler: {str(e)}")
+            self._send_message(command['user_id'], f"❌ {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in handle_remove_order: {str(e)}")
+            self._send_message(command['user_id'], "Ein unerwarteter Fehler ist aufgetreten")

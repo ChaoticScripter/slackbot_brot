@@ -49,16 +49,18 @@ def create_product_list_blocks(products: List) -> List[Dict]:
             "text": {
                 "type": "mrkdwn",
                 "text": f"• *{product.name}*"
-            },
-            "accessory": {
-                "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Bestellen"
-                },
-                "value": f"order_{product.product_id}",
-                "action_id": "order_product"
+
+            #},
+            #"accessory": {
+            #    "type": "button",
+            #    "text": {
+            #        "type": "plain_text",
+            #        "text": "Bestellen"
+            #    },
+            #    "value": f"order_{product.product_id}",
+            #    "action_id": "order_product"
             }
+
         })
 
     return blocks
@@ -74,9 +76,10 @@ def create_order_help_blocks() -> List[Dict]:
                 "text": (
                     "*Verfügbare Befehle:*\n"
                     f"• `/order add [produkt] [anzahl], ...` - {EMOJIS['NEW']} Neue Bestellung aufgeben\n"
-                    f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
-                    f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"
+                    f"• `/order remove [produkt] [anzahl], ...` - {EMOJIS['DELETE']} Produkt entfernen~ *COMING SOON!*\n"
                     f"• `/order list` - {EMOJIS['LIST']} Aktuelle Bestellungen anzeigen\n"
+                    f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
+                    f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"                    
                     f"• `/order help` - {EMOJIS['INFO']} Diese Hilfe\n"
                 )
             }
