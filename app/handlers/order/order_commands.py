@@ -10,12 +10,13 @@ from app.core.order_service import OrderService
 from app.core.saved_order_service import SavedOrderService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
-from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, create_daily_reminder_blocks
+from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, \
+    create_daily_reminder_blocks, create_remove_preview_blocks
 from app.utils.message_blocks.attachments import (
     create_order_confirmation_attachments,
     create_order_list_attachments
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 logger = setup_logger(__name__)
 
@@ -276,3 +277,54 @@ class OrderHandler:
         except Exception as e:
             logger.error(f"List saved orders error: {str(e)}")
             self._send_message(user_id, f"Fehler: {str(e)}")
+
+    def _parse_remove_command(text: str) -> List[Dict[str, Any]]:
+        """Parst den Entfernen-Befehl"""
+        if not text.startswith('remove '):
+            raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl]")
+
+        items = []
+        parts = text[7:].split(',')
+
+        for part in parts:
+            try:
+                name, quantity = part.strip().split()
+                quantity = int(quantity)
+                if quantity <= 0:
+                    raise OrderError(f"Ungültige Menge für {name}: {quantity}")
+                items.append({
+                    'name': name.lower(),
+                    'quantity': quantity
+                })
+            except ValueError:
+                raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
+
+        return items
+
+    def _handle_remove_order(self, command: Dict[str, Any]) -> None:
+        """Verarbeitet das Entfernen von Produkten"""
+        try:
+            items = self._parse_remove_command(command.get('text', ''))
+            user_id = command['user_id']
+
+            with db_session() as session:
+                service = OrderService(session)
+                order, items_to_remove = service.remove_items_preview(user_id, items)
+
+                blocks = create_remove_preview_blocks(order, items_to_remove)
+                self._send_message(
+                    user_id,
+                    blocks=blocks,
+                    text="Vorschau der Bestellungsänderung"
+                )
+
+                # Nach 30 Sekunden automatisch abbrechen
+                self.slack_app.client.chat_scheduleMessage(
+                    channel=user_id,
+                    post_at=int(time.time() + 30),
+                    text="Zeit abgelaufen - Änderung abgebrochen"
+                )
+
+        except Exception as e:
+            logger.error(f"Remove order error: {str(e)}")
+            self._send_message(command['user_id'], f"Fehler: {str(e)}")

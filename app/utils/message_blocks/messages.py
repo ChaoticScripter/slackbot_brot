@@ -2,9 +2,12 @@
 # app/utils/message_blocks/messages.py
 #==========================
 
-from typing import Dict, List, Optional
-from app.utils.message_blocks.constants import COLORS, EMOJIS, BLOCK_DEFAULTS
 from datetime import datetime
+from typing import Dict, List
+
+from app.utils.message_blocks.constants import EMOJIS, BLOCK_DEFAULTS, COLORS
+from models import Order
+
 
 def create_admin_help_blocks() -> List[Dict]:
     return [
@@ -209,6 +212,69 @@ def create_registration_blocks() -> List[Dict]:
             }
         }
     ]
+
+def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict]) -> List[Dict]:
+    """Erstellt Vorschau-Blöcke für das Entfernen von Produkten"""
+    current_items = {}
+    for item in order.items:
+        current_items[item.product.name] = item.quantity
+
+    preview_items = current_items.copy()
+    for remove_info in items_to_remove:
+        item = remove_info['item']
+        quantity = remove_info['quantity']
+        preview_items[item.product.name] -= quantity
+
+    blocks = [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['WARNING']} Bestellung ändern"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Zu entfernende Produkte:*\n" + "\n".join([
+                    f"• {item['item'].product.name}: {item['quantity']}x"
+                    for item in items_to_remove
+                ])
+            }
+        },
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Bestellung nach Änderung:*\n" + "\n".join([
+                    f"• {name}: {qty}x"
+                    for name, qty in preview_items.items()
+                    if qty > 0
+                ])
+            }
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "✅ Bestätigen"
+                    },
+                    "style": "primary",
+                    "action_id": "remove_confirm"
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "❌ Abbrechen"
+                    },
+                    "style": "danger",
+                    "action_id": "remove_cancel"
+                }
+            ]
+        }
+    ]
+    return blocks
 
 # Weitere Message-Block-Funktionen bleiben ähnlich,
 # werden aber mit den neuen Konstanten und Layouts aktualisiert

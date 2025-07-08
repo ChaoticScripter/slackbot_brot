@@ -13,6 +13,7 @@ from app.utils.logging.log_config import setup_logger
 from app.utils.db.database import db_session
 from app.utils.message_blocks.home_view import create_home_view
 from app.models import User, Order
+from core.order_service import OrderService
 
 logger = setup_logger(__name__)
 
@@ -84,3 +85,44 @@ def handle_errors(error, body, logger):
 
 
 handler = SlackRequestHandler(app)
+
+
+@app.action("remove_confirm")
+def handle_remove_confirm(ack, body, client):
+    ack()
+    try:
+        # Original Message löschen
+        client.chat_delete(
+            channel=body["container"]["channel_id"],
+            ts=body["container"]["message_ts"]
+        )
+
+        with db_session() as session:
+            service = OrderService(session)
+            order = service.remove_items(body["user"]["id"], body["private_metadata"])
+            session.commit()
+
+        client.chat_postMessage(
+            channel=body["container"]["channel_id"],
+            text="✅ Bestellung wurde erfolgreich aktualisiert"
+        )
+
+    except Exception as e:
+        logger.error(f"Error confirming remove: {str(e)}")
+        client.chat_postMessage(
+            channel=body["container"]["channel_id"],
+            text=f"❌ Fehler beim Aktualisieren der Bestellung: {str(e)}"
+        )
+
+
+@app.action("remove_cancel")
+def handle_remove_cancel(ack, body, client):
+    ack()
+    client.chat_delete(
+        channel=body["container"]["channel_id"],
+        ts=body["container"]["message_ts"]
+    )
+    client.chat_postMessage(
+        channel=body["container"]["channel_id"],
+        text="❌ Änderung wurde abgebrochen"
+    )
