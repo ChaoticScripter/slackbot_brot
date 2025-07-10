@@ -4,7 +4,7 @@
 
 from slack_bolt import App
 from slack_bolt.adapter.flask import SlackRequestHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from config.app_config import settings
 from app.handlers.order.order_commands import OrderHandler
 from app.handlers.user.user_commands import UserHandler
@@ -13,7 +13,8 @@ from app.utils.logging.log_config import setup_logger
 from app.utils.db.database import db_session
 from app.utils.message_blocks.home_view import create_home_view
 from app.models import User, Order
-from core.order_service import OrderService
+from app.core.order_service import OrderService
+import json
 
 logger = setup_logger(__name__)
 
@@ -89,22 +90,54 @@ handler = SlackRequestHandler(app)
 
 @app.action("remove_confirm")
 def handle_remove_confirm(ack, body, client):
+    """Handler für den Bestätigen-Button"""
     ack()
     try:
-        # Original Message löschen
-        client.chat_delete(
-            channel=body["container"]["channel_id"],
-            ts=body["container"]["message_ts"]
-        )
+        # Debug-Logging für die empfangenen Daten
+        logger.debug(f"Received action body: {json.dumps(body)}")
 
+        # Button-Value aus den Actions extrahieren
+        if not body.get("actions") or not body["actions"][0].get("value"):
+            raise ValueError("Keine Button-Daten gefunden")
+
+        button_data = json.loads(body["actions"][0]["value"])
+        if button_data.get("type") != "remove_order":
+            raise ValueError("Ungültiger Datentyp")
+
+        data = button_data.get("data", {})
+        items = data.get("items")
+        user_id = data.get("user_id")
+
+        if not items or not user_id:
+            raise ValueError("Unvollständige Daten")
+
+        # Buttons entfernen und Status aktualisieren
+        blocks = body["message"]["blocks"]
+        blocks = blocks[:-2]  # Entferne Timer-Info und Action-Block
+
+        # Bestellung in der Datenbank aktualisieren
         with db_session() as session:
             service = OrderService(session)
-            order = service.remove_items(body["user"]["id"], body["private_metadata"])
+            service.remove_items(user_id, items)
             session.commit()
 
-        client.chat_postMessage(
+        # Status-Update hinzufügen
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "✅ Die Änderungen wurden erfolgreich übernommen."
+                }
+            ]
+        })
+
+        # Nachricht aktualisieren
+        client.chat_update(
             channel=body["container"]["channel_id"],
-            text="✅ Bestellung wurde erfolgreich aktualisiert"
+            ts=body["container"]["message_ts"],
+            blocks=blocks,
+            text="Bestellung wurde aktualisiert"
         )
 
     except Exception as e:
@@ -117,12 +150,35 @@ def handle_remove_confirm(ack, body, client):
 
 @app.action("remove_cancel")
 def handle_remove_cancel(ack, body, client):
+    """Handler für den Abbrechen-Button"""
     ack()
-    client.chat_delete(
-        channel=body["container"]["channel_id"],
-        ts=body["container"]["message_ts"]
-    )
-    client.chat_postMessage(
-        channel=body["container"]["channel_id"],
-        text="❌ Änderung wurde abgebrochen"
-    )
+    try:
+        # Buttons entfernen und Status aktualisieren
+        blocks = body["message"]["blocks"]
+        blocks = blocks[:-2]  # Entferne Timer-Info und Action-Block
+
+        # Abbruch-Info hinzufügen
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "❌ Der Vorgang wurde abgebrochen. Die Bestellung bleibt unverändert."
+                }
+            ]
+        })
+
+        # Nachricht aktualisieren
+        client.chat_update(
+            channel=body["container"]["channel_id"],
+            ts=body["container"]["message_ts"],
+            blocks=blocks,
+            text="Vorgang abgebrochen"
+        )
+
+    except Exception as e:
+        logger.error(f"Error handling cancel: {str(e)}")
+        client.chat_postMessage(
+            channel=body["container"]["channel_id"],
+            text="❌ Fehler beim Abbrechen des Vorgangs"
+        )

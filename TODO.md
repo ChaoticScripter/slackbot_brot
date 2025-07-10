@@ -2,7 +2,7 @@
 - Functions: 
   - [x] /order save
   - [x] /order savelist
-  - [ ] /order remove
+  - [x] /order remove
   - [ ] /order productlist
 
 

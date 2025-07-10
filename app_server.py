@@ -17,14 +17,15 @@ logger = setup_logger(__name__)
 def create_app() -> Flask:
     """Erstellt und konfiguriert die Flask-Anwendung"""
     app = Flask(__name__)
-    app.register_blueprint(slack_routes)
-    return app
 
+    # Registriere die Slack-Routen mit dem korrekten URL-Präfix
+    app.register_blueprint(slack_routes, url_prefix='')
+
+    return app
 
 if __name__ == "__main__":
     try:
         # Datenbank-Tabellen erstellen
-        from app.models import Base
 
         Base.metadata.create_all(bind=engine)
 
