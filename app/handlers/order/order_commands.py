@@ -11,13 +11,16 @@ from app.core.order_service import OrderService
 from app.core.saved_order_service import SavedOrderService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
-from app.utils.message_blocks.messages import create_order_help_blocks, create_order_list_blocks, \
-    create_daily_reminder_blocks, create_remove_preview_blocks
-from app.utils.message_blocks.attachments import (
-    create_order_confirmation_attachments,
-    create_order_list_attachments
+from app.utils.message_blocks.messages import (
+    create_order_help_blocks,
+    create_order_list_blocks,
+    create_daily_reminder_blocks,
+    create_remove_preview_blocks,
+    create_order_confirmation_blocks
 )
 from datetime import datetime, timedelta, time
+import json
+from threading import Timer
 
 logger = setup_logger(__name__)
 
@@ -106,8 +109,9 @@ class OrderHandler:
                 session.flush()
                 session.commit()
                 session.refresh(order)
-                attachments = create_order_confirmation_attachments(order)
-                self._send_message(user_id, attachments=attachments)
+                # Verwende die neue Block-Funktion statt Attachments
+                blocks = create_order_confirmation_blocks(order)
+                self._send_message(user_id, blocks=blocks)
 
         except OrderError as e:
             self._send_message(command['user_id'], f"Bestellungsfehler: {str(e)}")
@@ -119,29 +123,22 @@ class OrderHandler:
         """Zeigt die Bestellungen der aktuellen Mittwoch-Woche an"""
         try:
             with db_session() as session:
-                # Aktuelle Zeit und Wochentag
                 now = datetime.now()
                 current_weekday = now.weekday()
-
-                # Letzten Mittwoch 10:00 Uhr finden
                 days_since_wednesday = (current_weekday - 2) % 7
                 last_wednesday = now - timedelta(days=days_since_wednesday)
                 period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
 
-                # Wenn es Mittwoch vor 10 Uhr ist, nehmen wir den Mittwoch der Vorwoche
                 if current_weekday == 2 and now.hour < 10:
                     period_start = period_start - timedelta(days=7)
 
-                # Nächsten Mittwoch 09:59 Uhr
                 period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
 
-                # Bestellungen abrufen
                 user = session.query(User).filter_by(slack_id=user_id).first()
                 if not user:
                     self._send_message(user_id, "Benutzer nicht gefunden")
                     return
 
-                # Bestellungen abrufen
                 orders = session.query(Order) \
                     .filter(
                     Order.user_id == user.user_id,
@@ -150,7 +147,6 @@ class OrderHandler:
                     .order_by(Order.order_date.asc()) \
                     .all()
 
-                # Letzte Bestellung für den Zeitstempel
                 latest_order = session.query(Order) \
                     .filter(
                     Order.user_id == user.user_id,
@@ -159,9 +155,9 @@ class OrderHandler:
                     .order_by(Order.order_date.desc()) \
                     .first()
 
-                # Attachments erstellen und senden
-                attachments = create_order_list_attachments(orders, period_start, period_end, latest_order)
-                self._send_message(user_id, attachments=attachments)
+                # Verwende die neue Block-Funktion statt Attachments
+                blocks = create_order_list_blocks(orders, period_start, period_end, latest_order)
+                self._send_message(user_id, blocks=blocks)
 
         except Exception as e:
             logger.error(f"Error listing orders: {str(e)}")
@@ -323,40 +319,99 @@ class OrderHandler:
             if not command.get('text', '').startswith('remove '):
                 raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl]")
 
-            items = []
-            parts = command['text'][7:].split(',')  # "remove " entfernen und nach Komma splitten
-
-            for part in parts:
-                try:
-                    product_parts = part.strip().split()
-                    if len(product_parts) < 2:
-                        raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
-
-                    quantity = int(product_parts[-1])  # Letztes Element ist die Anzahl
-                    product_name = ' '.join(product_parts[:-1])  # Rest ist der Produktname
-
-                    if quantity <= 0:
-                        raise OrderError(f"Ungültige Menge für {product_name}: {quantity}")
-
-                    items.append({
-                        'name': product_name,
-                        'quantity': quantity
-                    })
-                except ValueError:
-                    raise OrderError(f"Ungültiges Format bei: {part}. Verwende: [produkt] [anzahl]")
+            items = self._parse_remove_command(command['text'])
+            user_id = command['user_id']
 
             with db_session() as session:
-                service = OrderService(session)
-                order = service.remove_items(command['user_id'], items)
-                session.commit()
+                now = datetime.now()
+                current_weekday = now.weekday()
+                days_since_wednesday = (current_weekday - 2) % 7
+                last_wednesday = now - timedelta(days=days_since_wednesday)
+                period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
 
-                # Bestätigung senden
-                attachments = create_order_confirmation_attachments(order)
-                self._send_message(
-                    command['user_id'],
-                    text="✅ Produkte wurden erfolgreich aus der Bestellung entfernt",
-                    attachments=attachments
+                if current_weekday == 2 and now.hour < 10:
+                    period_start = period_start - timedelta(days=7)
+
+                period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+                # Aktuelle Bestellung finden
+                service = OrderService(session)
+                order = service.get_current_order(user_id, period_start, period_end)
+                session.refresh(order)
+
+                # Erst die aktuelle Gesamtbestellung berechnen
+                preview_items = {}
+                orders = session.query(Order).filter(
+                    Order.user_id == order.user_id,
+                    Order.order_date.between(period_start, period_end)
+                ).all()
+
+                for current_order in orders:
+                    for item in current_order.items:
+                        name = item.product.name
+                        if name in preview_items:
+                            preview_items[name] += item.quantity
+                        else:
+                            preview_items[name] = item.quantity
+
+                # Dann die zu entfernenden Items abziehen
+                for item in items:
+                    name = item['name']
+                    if name in preview_items:
+                        if preview_items[name] < item['quantity']:
+                            raise OrderError(f"Nicht genügend {name} zum Entfernen vorhanden")
+                        preview_items[name] -= item['quantity']
+                        if preview_items[name] <= 0:
+                            del preview_items[name]
+
+                # Vorschau-Blocks erstellen
+                blocks = create_remove_preview_blocks(order, items, preview_items, period_start, period_end)
+
+                # Metadaten vorbereiten
+                metadata = {
+                    "type": "remove_order",
+                    "data": {
+                        "items": items,
+                        "user_id": user_id
+                    }
+                }
+
+                # Nachricht mit Timer senden
+                result = self.slack_app.client.chat_postMessage(
+                    channel=user_id,
+                    blocks=blocks,
+                    text="Bestellung ändern?",
+                    metadata=metadata  # Metadaten direkt als Dictionary übergeben
                 )
+
+                # Timer für das Aktualisieren der Nachricht nach 30 Sekunden
+                def timeout_callback():
+                    try:
+                        # Buttons entfernen und Timeout-Nachricht hinzufügen
+                        blocks_timeout = blocks[:-2]  # Entferne Timer-Info und Action-Block
+                        blocks_timeout.append({
+                            "type": "context",
+                            "elements": [
+                                {
+                                    "type": "mrkdwn",
+                                    "text": "⏰ Zeitüberschreitung - Der Vorgang wurde automatisch abgebrochen. Die Bestellung bleibt unverändert."
+                            }
+                            ]
+                        })
+
+                        # Nachricht aktualisieren
+                        self.slack_app.client.chat_update(
+                            channel=result['channel'],
+                            ts=result['ts'],
+                            blocks=blocks_timeout,
+                            text="Vorgang abgebrochen (Zeitüberschreitung)"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error handling timeout: {str(e)}")
+
+                # Timer starten
+                timer = Timer(30.0, timeout_callback)
+                timer.start()
 
         except OrderError as e:
             logger.error(f"Remove order error: {str(e)}")

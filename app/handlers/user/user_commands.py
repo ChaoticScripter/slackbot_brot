@@ -2,12 +2,13 @@
 # app/handlers/user/user_commands.py
 #==========================
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import logging
 from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.user_service import UserService
 from app.utils.constants.error_types import ValidationError
+from app.utils.message_blocks.messages import create_name_blocks, create_registration_blocks
 
 logger = setup_logger(__name__)
 
@@ -55,10 +56,9 @@ class UserHandler:
                 user = service.register_user(user_id, name)
                 session.commit()
 
-                self._send_message(
-                    user_id,
-                    f"✅ Erfolgreich registriert als: {user.name}"
-                )
+                # Verwende Message-Blocks für die Bestätigung
+                blocks = create_registration_blocks()
+                self._send_message(user_id, blocks=blocks)
 
         except ValidationError as e:
             self._send_message(command['user_id'], f"❌ Registrierungsfehler: {str(e)}")
@@ -78,13 +78,13 @@ class UserHandler:
 
             with db_session() as session:
                 service = UserService(session)
+                old_name = service.get_user_name(user_id)
                 user = service.update_user_name(user_id, new_name)
                 session.commit()
 
-                self._send_message(
-                    user_id,
-                    f"✅ Name geändert zu: {user.name}"
-                )
+                # Verwende Message-Blocks für die Bestätigung
+                blocks = create_name_blocks(old_name, new_name)
+                self._send_message(user_id, blocks=blocks)
 
         except ValidationError as e:
             self._send_message(command['user_id'], f"❌ Fehler: {str(e)}")
@@ -94,23 +94,48 @@ class UserHandler:
 
     def _show_help(self, user_id: str) -> None:
         """Zeigt die Hilfe-Nachricht an"""
-        help_text = (
-            "*Verfügbare Befehle:*\n"
-            "• `/user register [name]` Registriere dich als neuer Benutzer\n"
-            "• `/user name [neuer name]` Ändere deinen Namen\n"
-        )
-        self._send_message(user_id, help_text)
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "👤 Benutzer-Befehle"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        "*Verfügbare Befehle:*\n"
+                        "• `/user register [name]` Registriere dich als neuer Benutzer\n"
+                        "• `/user name [neuer name]` Ändere deinen Namen\n"
+                    )
+                }
+            }
+        ]
+        self._send_message(user_id, blocks=blocks)
 
-    def _send_message(self, user_id: str, text: str) -> None:
+    def _send_message(self, user_id: str, text: str = None, blocks: List = None) -> None:
         """Sendet eine Nachricht an einen Benutzer"""
         if not self.slack_app:
             logger.error("Slack app not initialized")
             return
 
         try:
+            # Fallback-Text für Block-Nachrichten
+            fallback_text = text or (
+                blocks[0]["text"]["text"] if blocks and blocks[0].get("text", {}).get("text")
+                else "Neue Nachricht vom BrotBot"
+            )
+
             self.slack_app.client.chat_postMessage(
                 channel=user_id,
-                text=text
+                text=fallback_text,
+                blocks=blocks
             )
         except Exception as e:
             logger.error(f"Failed to send message to {user_id}: {str(e)}")

@@ -4,9 +4,10 @@
 
 from datetime import datetime
 from typing import Dict, List
+import json
 
 from app.utils.message_blocks.constants import EMOJIS, BLOCK_DEFAULTS, COLORS
-from models import Order
+from app.models import Order
 
 
 def create_admin_help_blocks() -> List[Dict]:
@@ -86,11 +87,61 @@ def create_order_help_blocks() -> List[Dict]:
         }
     ]
 
-def create_order_list_blocks(orders: List) -> List[Dict]:
+def create_order_confirmation_blocks(order: Order) -> List[Dict]:
+    """Erstellt Message Blocks für eine Bestellbestätigung"""
+    return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['SUCCESS']} Bestellung bestätigt"),
+        BLOCK_DEFAULTS["CONTEXT"](f"Bestellt am: {order.order_date.strftime('%d.%m.%Y %H:%M')}"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Bestelldetails:*"
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Produkt*"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Menge*"
+                }
+            ]
+        },
+        *[{
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"{item.product.name}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"{item.quantity}x"
+                }
+            ]
+        } for item in order.items],
+        BLOCK_DEFAULTS["DIVIDER"],
+        BLOCK_DEFAULTS["CONTEXT"](f"{EMOJIS['INFO']} Verwende `/order list` um deine gesamten Bestellungen anzuzeigen")
+    ]
+
+def create_order_list_blocks(orders: List[Order], period_start: datetime, period_end: datetime, latest_order: Order = None) -> List[Dict]:
+    """Erstellt Message Blocks für die Bestellübersicht"""
     blocks = [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['LIST']} Bestellübersicht"),
-        BLOCK_DEFAULTS["CONTEXT"](f"Stand: {EMOJIS['TIME']} " +
-                                datetime.now().strftime("%d.%m.%Y %H:%M")),
+        BLOCK_DEFAULTS["CONTEXT"](
+            f"Zeitraum: {EMOJIS['CALENDAR']} {period_start.strftime('%d.%m.%Y')} 10:00 - "
+            f"{period_end.strftime('%d.%m.%Y')} 09:59"
+        ),
+        BLOCK_DEFAULTS["CONTEXT"](
+            f"Stand: {EMOJIS['TIME']} " +
+            (latest_order.order_date.strftime("%d.%m.%Y %H:%M") if latest_order else "Keine Bestellungen")
+        ),
         BLOCK_DEFAULTS["DIVIDER"]
     ]
 
@@ -99,52 +150,59 @@ def create_order_list_blocks(orders: List) -> List[Dict]:
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"{EMOJIS['INFO']} Keine aktiven Bestellungen"
+                "text": f"{EMOJIS['INFO']} Keine Bestellungen in diesem Zeitraum"
             }
         })
         return blocks
 
-    # Bestellungen nach Datum gruppieren
-    grouped_orders = {}
+    # Alle Produkte über den gesamten Zeitraum summieren
+    product_totals = {}
     for order in orders:
-        date = order.order_date.strftime("%d.%m.%Y")
-        if date not in grouped_orders:
-            grouped_orders[date] = []
-        grouped_orders[date].extend(order.items)
-
-    for date, items in grouped_orders.items():
-        blocks.extend([
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{EMOJIS['CALENDAR']} {date}*"
-                }
-            }
-        ])
-
-        # Produkte gruppieren und summieren
-        product_totals = {}
-        for item in items:
+        for item in order.items:
             name = item.product.name
             if name in product_totals:
                 product_totals[name] += item.quantity
             else:
                 product_totals[name] = item.quantity
 
-        # Sortierte Produktliste ausgeben
-        order_list = []
-        for product, quantity in sorted(product_totals.items()):
-            order_list.append(f"• {product}: {quantity}x")
+    # Header für die Tabelle
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "*Gesamtbestellung:*"
+        }
+    })
 
+    blocks.append({
+        "type": "section",
+        "fields": [
+            {
+                "type": "mrkdwn",
+                "text": "*Produkt*"
+            },
+            {
+                "type": "mrkdwn",
+                "text": "*Menge*"
+            }
+        ]
+    })
+
+    # Produktliste in Tabellenform ausgeben
+    for product, quantity in sorted(product_totals.items()):
         blocks.append({
             "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "\n".join(order_list)
-            }
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"{product}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"{quantity}x"
+                }
+            ]
         })
-        blocks.append(BLOCK_DEFAULTS["DIVIDER"])
 
     return blocks
 
@@ -216,17 +274,16 @@ def create_registration_blocks() -> List[Dict]:
         }
     ]
 
-def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict]) -> List[Dict]:
+def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict], preview_items: Dict[str, int], period_start: datetime, period_end: datetime) -> List[Dict]:
     """Erstellt Vorschau-Blöcke für das Entfernen von Produkten"""
-    current_items = {}
-    for item in order.items:
-        current_items[item.product.name] = item.quantity
-
-    preview_items = current_items.copy()
-    for remove_info in items_to_remove:
-        item = remove_info['item']
-        quantity = remove_info['quantity']
-        preview_items[item.product.name] -= quantity
+    # Button-Value für die Metadaten
+    button_value = json.dumps({
+        "type": "remove_order",
+        "data": {
+            "items": items_to_remove,
+            "user_id": order.user.slack_id
+        }
+    })
 
     blocks = [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['WARNING']} Bestellung ändern"),
@@ -235,24 +292,95 @@ def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict]) -> L
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Zu entfernende Produkte:*\n" + "\n".join([
-                    f"• {item['item'].product.name}: {item['quantity']}x"
-                    for item in items_to_remove
-                ])
+                "text": "*Zu entfernende Produkte:*"
             }
         },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Produkt*"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Menge*"
+                }
+            ]
+        }
+    ]
+
+    # Zu entfernende Produkte als Fields
+    for remove_info in items_to_remove:
+        blocks.append({
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"{remove_info['name']}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"{remove_info['quantity']}x"
+                }
+            ]
+        })
+
+    # Bestellung nach Änderung
+    blocks.extend([
         BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Bestellung nach Änderung:*\n" + "\n".join([
-                    f"• {name}: {qty}x"
-                    for name, qty in preview_items.items()
-                    if qty > 0
-                ])
+                "text": "*Bestellung nach Änderung:*"
             }
         },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Produkt*"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Menge*"
+                }
+            ]
+        }
+    ])
+
+    if preview_items:
+        # Alle verbleibenden Produkte anzeigen, sortiert nach Name
+        for product_name, quantity in sorted(preview_items.items()):
+            if quantity > 0:  # Nur Produkte mit einer Menge > 0 anzeigen
+                blocks.append({
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"{product_name}"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"{quantity}x"
+                        }
+                    ]
+                })
+    else:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "_Keine Produkte in der Bestellung_"
+            }
+        })
+
+    blocks.extend([
+        BLOCK_DEFAULTS["CONTEXT"](
+            f"{EMOJIS['INFO']} Diese Vorschau ist für 30 Sekunden gültig. Danach wird der Vorgang automatisch abgebrochen."
+        ),
         {
             "type": "actions",
             "elements": [
@@ -260,23 +388,27 @@ def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict]) -> L
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": "✅ Bestätigen"
+                        "text": "✅ Bestätigen",
+                        "emoji": True
                     },
                     "style": "primary",
+                    "value": button_value,
                     "action_id": "remove_confirm"
                 },
                 {
                     "type": "button",
                     "text": {
                         "type": "plain_text",
-                        "text": "❌ Abbrechen"
+                        "text": "❌ Abbrechen",
+                        "emoji": True
                     },
                     "style": "danger",
                     "action_id": "remove_cancel"
                 }
             ]
         }
-    ]
+    ])
+
     return blocks
 
 # Weitere Message-Block-Funktionen bleiben ähnlich,
