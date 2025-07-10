@@ -9,6 +9,7 @@ from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.order_service import OrderService
 from app.core.saved_order_service import SavedOrderService
+from app.core.product_service import ProductService
 from app.utils.constants.error_types import OrderError
 from app.models import Order, User
 from app.utils.message_blocks.messages import (
@@ -16,7 +17,9 @@ from app.utils.message_blocks.messages import (
     create_order_list_blocks,
     create_daily_reminder_blocks,
     create_remove_preview_blocks,
-    create_order_confirmation_blocks
+    create_order_confirmation_blocks,
+    create_product_list_blocks,
+    create_product_row_block
 )
 from datetime import datetime, timedelta, time
 import json
@@ -89,6 +92,8 @@ class OrderHandler:
                 self._handle_list_orders(user_id)
             elif sub_command == 'remove':
                 self._handle_remove_order(command)
+            elif sub_command == 'products':
+                self._handle_product_list(user_id)
             else:
                 self._show_help(user_id)
 
@@ -419,3 +424,25 @@ class OrderHandler:
         except Exception as e:
             logger.error(f"Unexpected error in handle_remove_order: {str(e)}")
             self._send_message(command['user_id'], "Ein unerwarteter Fehler ist aufgetreten")
+
+    def _handle_product_list(self, user_id: str) -> None:
+        """Zeigt eine Liste aller aktiven Produkte an"""
+        try:
+            with db_session() as session:
+                # ProductService verwenden um aktive Produkte zu holen
+                service = ProductService(session)
+                products = service.get_active_products()
+
+                # Basis-Blocks erstellen
+                blocks = create_product_list_blocks()
+
+                # Für jedes Produkt einen Block hinzufügen
+                for product in products:
+                    blocks.append(create_product_row_block(product))
+
+                # Nachricht senden
+                self._send_message(user_id, blocks=blocks)
+
+        except Exception as e:
+            logger.error(f"Error listing products: {str(e)}")
+            self._send_message(user_id, "Ein Fehler ist beim Abrufen der Produkte aufgetreten")

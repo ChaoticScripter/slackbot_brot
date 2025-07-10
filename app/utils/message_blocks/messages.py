@@ -66,6 +66,42 @@ def create_product_list_blocks(products: List) -> List[Dict]:
 
     return blocks
 
+def create_product_list_blocks() -> List[Dict]:
+    """Erstellt Message Blocks für die Produktliste"""
+    return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Verfügbare Produkte"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Produkt*"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Beschreibung*"
+                }
+            ]
+        }
+    ]
+
+def create_product_row_block(product) -> Dict:
+    """Erstellt einen Block für eine Produktzeile"""
+    return {
+        "type": "section",
+        "fields": [
+            {
+                "type": "mrkdwn",
+                "text": f"{product.name}"
+            },
+            {
+                "type": "mrkdwn",
+                "text": f"{product.description or '_Keine Beschreibung_'}"
+            }
+        ]
+    }
+
 def create_order_help_blocks() -> List[Dict]:
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['ORDER']} Bestellhilfe"),
