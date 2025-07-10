@@ -49,44 +49,67 @@ class OrderService:
             return []
         return self.session.query(Order).filter_by(user_id=user.user_id).all()
 
-    def remove_items_preview(self, user_id: str, items: List[Dict[str, Any]]) -> Tuple[Order, List[Dict[str, Any]]]:
+    def remove_items_preview(self, user_id: str, items: List[Dict[str, Any]]) -> Tuple[Order, List[Dict[str, Any]], Dict[str, int]]:
         """Erstellt eine Vorschau der Bestellung nach dem Entfernen von Produkten"""
         user = self.session.query(User).filter_by(slack_id=user_id).first()
         if not user:
             raise OrderError("Benutzer nicht gefunden")
 
-        # Aktuelle Wochenbestellung finden
-        current_week_order = self._get_current_week_order(user.user_id)
-        if not current_week_order:
+        # Zeitraum bestimmen
+        now = datetime.now()
+        current_weekday = now.weekday()
+        days_since_wednesday = (current_weekday - 2) % 7
+        last_wednesday = now - timedelta(days=days_since_wednesday)
+        period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
+
+        if current_weekday == 2 and now.hour < 10:
+            period_start = period_start - timedelta(days=7)
+
+        period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+        # Alle Bestellungen im Zeitraum finden
+        orders = self.session.query(Order).filter(
+            Order.user_id == user.user_id,
+            Order.order_date.between(period_start, period_end)
+        ).all()
+
+        if not orders:
             raise OrderError("Keine aktive Bestellung gefunden")
 
-        # Überprüfen ob genügend Produkte zum Entfernen vorhanden sind
-        items_to_remove = []
+        # Alle Produkte über den gesamten Zeitraum summieren
+        current_items = {}
+        for order in orders:
+            for item in order.items:
+                name = item.product.name
+                if name in current_items:
+                    current_items[name] += item.quantity
+                else:
+                    current_items[name] = item.quantity
+
+        # Vorschau der verbleibenden Produkte berechnen
+        preview_items = current_items.copy()
+
+        # Überprüfen ob genügend Produkte zum Entfernen vorhanden sind und Vorschau berechnen
+        invalid_items = []
         for item in items:
-            product = self.session.query(Product).filter(
-                # Case-insensitive Vergleich des Produktnamens
-                Product.name.ilike(item['name'])
-            ).first()
+            name = item['name']
+            if name not in preview_items:
+                invalid_items.append((name, 0, item['quantity']))
+            elif preview_items[name] < item['quantity']:
+                invalid_items.append((name, preview_items[name], item['quantity']))
+            else:
+                preview_items[name] -= item['quantity']
+                if preview_items[name] <= 0:
+                    del preview_items[name]
 
-            if not product:
-                raise OrderError(f"Produkt {item['name']} nicht gefunden")
+        if invalid_items:
+            error_msg = "\n".join([
+                f"Nicht genügend {name} zum Entfernen vorhanden (Vorhanden: {current}, Angefordert: {requested})"
+                for name, current, requested in invalid_items
+            ])
+            raise OrderError(error_msg)
 
-            existing_item = next(
-                # Case-insensitive Vergleich bei der Suche
-                (i for i in current_week_order.items if i.product.name.lower() == item['name'].lower()),
-                None
-            )
-            if not existing_item:
-                raise OrderError(f"Produkt {item['name']} ist nicht in der Bestellung vorhanden")
-            if existing_item.quantity < item['quantity']:
-                raise OrderError(f"Nicht genügend {item['name']} zum Entfernen vorhanden")
-
-            items_to_remove.append({
-                'item': existing_item,
-                'quantity': item['quantity']
-            })
-
-        return current_week_order, items_to_remove
+        return orders[0], items, preview_items
 
     # app/core/order_service.py
 
@@ -180,3 +203,26 @@ class OrderService:
         ) \
             .order_by(Order.order_date.desc()) \
             .first()
+
+    def get_current_order(self, user_slack_id: str, period_start: datetime, period_end: datetime) -> Order:
+        """Holt die aktuelle Bestellung eines Benutzers für den angegebenen Zeitraum"""
+        user = self.session.query(User).filter_by(slack_id=user_slack_id).first()
+        if not user:
+            raise OrderError("Benutzer nicht gefunden")
+
+        order = (
+            self.session.query(Order)
+            .filter(
+                Order.user_id == user.user_id,
+                Order.order_date.between(period_start, period_end)
+            )
+            .order_by(Order.order_date.desc())
+            .first()
+        )
+
+        if not order:
+            raise OrderError("Keine aktive Bestellung gefunden")
+
+        # Stelle sicher, dass die Items geladen werden
+        self.session.refresh(order)
+        return order
