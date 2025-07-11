@@ -73,50 +73,75 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                     f"• `/order save` Bestellung speichern\n"
                     f"• `/order savelist` Gespeicherte Bestellungen anzeigen\n"
                     f"• `/order remove` Produkt aus Bestellung löschen\n"
-                    f"• ~`/order products` Aktive Produkte anzeigen\n"
+                    f"• `/order products` Aktive Produkte anzeigen\n"
                     f"• `/order` Hilfe anzeigen\n\n"
                     f"• `/user register` In die Datenbank registrieren\n"
                     f"• `/user name` Name in der Datenbank ändern\n"
                     f"• `/user` Hilfe anzeigen\n"
                 )
             }
+        },
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{EMOJIS['ORDER']} Aktuelle Wochenbestellung"
+            }
         }
     ]
 
-    # Letzte Bestellungen anzeigen, wenn vorhanden
+    # Aktuelle Wochenbestellung anzeigen
     if recent_orders:
-        blocks.extend([
-            BLOCK_DEFAULTS["DIVIDER"],
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{EMOJIS['TIME']} Letzte Bestellungen:*"
-                }
-            }
-        ])
-
-        weekday_map = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-
+        # Alle Produkte über den gesamten Zeitraum summieren
+        product_totals = {}
         for order in recent_orders:
-            order_items = []
             for item in order.items:
-                order_items.append(f"• {item.product.name}: {item.quantity}x")
+                name = item.product.name
+                if name in product_totals:
+                    product_totals[name] += item.quantity
+                else:
+                    product_totals[name] = item.quantity
 
-            weekday = weekday_map[order.order_date.weekday()]  # 0=Mo, ..., 6=So
+        if product_totals:
+            blocks.append({
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "*Produkt*"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": "*Menge*"
+                    }
+                ]
+            })
 
+            # Produktliste in Tabellenform ausgeben
+            for product, quantity in sorted(product_totals.items()):
+                blocks.append({
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"{product}"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": f"{quantity}x"
+                        }
+                    ]
+                })
+        else:
             blocks.append({
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": (
-                        f"*{weekday}, {order.order_date.strftime('%d.%m.%Y - %H:%M')}*\n"
-                        f"{'\n'.join(order_items)}"
-                    )
+                    "text": "_Keine aktiven Bestellungen für diese Woche_"
                 }
             })
 
-    # Status-Sektion
     blocks.extend([
         BLOCK_DEFAULTS["DIVIDER"],
         {
@@ -138,7 +163,66 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         },
         BLOCK_DEFAULTS["CONTEXT"](
             f"Zuletzt aktualisiert: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-        )
+        ),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "📝 Feedback"
+            }
+        },
+        {
+            "type": "input",
+            "block_id": "feedback_title",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "feedback_title_input",
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Kurze Überschrift für dein Feedback"
+                },
+                "max_length": 100
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Überschrift"
+            }
+        },
+        {
+            "type": "input",
+            "block_id": "feedback_text",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "feedback_text_input",
+                "multiline": True,
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Beschreibe dein Feedback, Verbesserungsvorschläge oder Probleme..."
+                },
+                "max_length": 1000
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Feedback"
+            }
+        },
+        {
+            "type": "actions",
+            "block_id": "feedback_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Feedback senden",
+                        "emoji": True
+                    },
+                    "style": "primary",
+                    "action_id": "submit_feedback"
+                }
+            ]
+        }
     ])
 
     # Admin-Sektion für Administratoren
