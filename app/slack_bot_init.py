@@ -182,3 +182,72 @@ def handle_remove_cancel(ack, body, client):
             channel=body["container"]["channel_id"],
             text="❌ Fehler beim Abbrechen des Vorgangs"
         )
+
+
+@app.action("submit_feedback")
+def handle_feedback_submission(ack, body, client):
+    """Handler für Feedback-Einreichungen"""
+    ack()
+    try:
+        # Home-View spezifische Block-Struktur
+        home_view_values = body.get("view", {}).get("state", {}).get("values", {})
+
+        feedback_title = home_view_values.get("feedback_title", {}).get("feedback_title_input", {}).get("value", "")
+        feedback_text = home_view_values.get("feedback_text", {}).get("feedback_text_input", {}).get("value", "")
+        user_id = body["user"]["id"]
+
+        with db_session() as session:
+            user = session.query(User).filter_by(slack_id=user_id).first()
+            if not user:
+                raise ValueError("Benutzer nicht gefunden")
+
+            # Feedback in den Feedback-Channel posten
+            client.chat_postMessage(
+                channel="feedback",  # Der Channel-Name oder die Channel-ID
+                text=f"Neues Feedback von {user.name} (@{body['user']['name']})\n\nÜberschrift: {feedback_title}\n\nFeedback: {feedback_text}",
+                blocks=[
+                    {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"Neues Feedback von {user.name} (@{body['user']['name']})"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Überschrift:*\n{feedback_title}"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Feedback:*\n{feedback_text}"
+                        }
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Gesendet: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            # Bestätigung an den Benutzer senden
+            client.chat_postMessage(
+                channel=user_id,
+                text="✅ Vielen Dank für dein Feedback! Es wurde erfolgreich übermittelt."
+            )
+
+    except Exception as e:
+        logger.error(f"Error handling feedback submission: {str(e)}")
+        client.chat_postMessage(
+            channel=body["user"]["id"],
+            text="❌ Es gab einen Fehler beim Senden des Feedbacks. Bitte versuche es später erneut."
+        )

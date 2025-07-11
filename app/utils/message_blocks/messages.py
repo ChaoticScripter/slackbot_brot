@@ -50,16 +50,6 @@ def create_product_list_blocks(products: List) -> List[Dict]:
             "text": {
                 "type": "mrkdwn",
                 "text": f"• *{product.name}*"
-
-            #},
-            #"accessory": {
-            #    "type": "button",
-            #    "text": {
-            #        "type": "plain_text",
-            #        "text": "Bestellen"
-            #    },
-            #    "value": f"order_{product.product_id}",
-            #    "action_id": "order_product"
             }
 
         })
@@ -113,11 +103,12 @@ def create_order_help_blocks() -> List[Dict]:
                 "text": (
                     "*Verfügbare Befehle:*\n"
                     f"• `/order add [produkt] [anzahl], ...` - {EMOJIS['NEW']} Neue Bestellung aufgeben\n"
-                    f"• `/order remove [produkt] [anzahl], ...` - {EMOJIS['DELETE']} Produkt entfernen~ *COMING SOON!*\n"
+                    f"• `/order remove [produkt] [anzahl], ...` - {EMOJIS['DELETE']} Produkt entfernen\n"
                     f"• `/order list` - {EMOJIS['LIST']} Aktuelle Bestellungen anzeigen\n"
                     f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
                     f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"                    
                     f"• `/order help` - {EMOJIS['INFO']} Diese Hilfe\n"
+                    f"• `/order products` - {EMOJIS['List']} Produktliste\n"
                 )
             }
         }
@@ -444,6 +435,62 @@ def create_remove_preview_blocks(order: Order, items_to_remove: List[Dict], prev
             ]
         }
     ])
+
+    return blocks
+
+def create_order_summary_blocks(orders: List[Order], show_header: bool = True) -> List[Dict]:
+    """Erstellt eine Zusammenfassung der Bestellungen für die Anzeige"""
+    blocks = []
+
+    # Alle Produkte über den gesamten Zeitraum summieren
+    product_totals = {}
+    for order in orders:
+        for item in order.items:
+            name = item.product.name
+            if name in product_totals:
+                product_totals[name] += item.quantity
+            else:
+                product_totals[name] = item.quantity
+
+    if product_totals:
+        if show_header:
+            blocks.append({
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "*Produkt*"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": "*Menge*"
+                    }
+                ]
+            })
+
+        # Produktliste in Tabellenform ausgeben
+        for product, quantity in sorted(product_totals.items()):
+            blocks.append({
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"{product}"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"{quantity}x"
+                    }
+                ]
+            })
+    else:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "_Keine aktiven Bestellungen für diese Woche_"
+            }
+        })
 
     return blocks
 
