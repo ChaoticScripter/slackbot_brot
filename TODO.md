@@ -3,12 +3,12 @@
   - [x] /order save
   - [x] /order savelist
   - [x] /order remove
-  - [ ] /order productlist
+  - [x] /order productlist
 
 
 - [ ] Fully integrated Reminder with Commands
 - [ ] Automatic sending all orders to a specific User
-- [ ] Admin Function for managing user to send Orders
+- [ ] Admin Function for managing user to get to send the Weekorders
 
 ## After that:
 - [ ] Buttons for better useability
