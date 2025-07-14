@@ -226,3 +226,48 @@ class OrderService:
         # Stelle sicher, dass die Items geladen werden
         self.session.refresh(order)
         return order
+
+    def get_weekly_summary(self) -> List[Dict]:
+        """Holt alle Bestellungen der aktuellen Woche und fasst sie zusammen"""
+        now = datetime.now()
+        current_weekday = now.weekday()
+        days_since_wednesday = (current_weekday - 2) % 7
+        last_wednesday = now - timedelta(days=days_since_wednesday)
+        period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
+
+        if current_weekday == 2 and now.hour < 10:  # Wenn Mittwoch vor 10 Uhr
+            period_start = period_start - timedelta(days=7)
+
+        period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+        # Alle Bestellungen im Zeitraum holen
+        orders = self.session.query(Order).filter(
+            Order.order_date.between(period_start, period_end)
+        ).all()
+
+        # Bestellungen nach Produkten zusammenfassen
+        product_totals = {}
+        for order in orders:
+            for item in order.items:
+                name = item.product.name
+                if name in product_totals:
+                    product_totals[name] += item.quantity
+                else:
+                    product_totals[name] = item.quantity
+
+        return [{
+            'name': name,
+            'quantity': quantity
+        } for name, quantity in sorted(product_totals.items())]
+
+    def send_weekly_summary(self) -> None:
+        """Sendet die Wochenbestellung an alle Benutzer mit gets_orders=True"""
+        # Benutzer mit gets_orders=True finden
+        users = self.session.query(User).filter_by(gets_orders=True).all()
+        if not users:
+            return
+
+        # Wochenbestellung zusammenfassen
+        summary = self.get_weekly_summary()
+
+        return users, summary

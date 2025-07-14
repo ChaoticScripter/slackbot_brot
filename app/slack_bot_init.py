@@ -12,6 +12,8 @@ from app.handlers.admin.admin_commands import AdminHandler
 from app.utils.logging.log_config import setup_logger
 from app.utils.db.database import db_session
 from app.utils.message_blocks.home_view import create_home_view
+from app.utils.message_blocks.messages import create_user_help_blocks, create_feedback_message_blocks
+from app.utils.message_blocks.modals import create_feedback_modal
 from app.models import User, Order
 from app.core.order_service import OrderService
 import json
@@ -201,42 +203,19 @@ def handle_feedback_submission(ack, body, client):
             if not user:
                 raise ValueError("Benutzer nicht gefunden")
 
+            # Feedback-Blocks erstellen und in den Feedback-Channel posten
+            blocks = create_feedback_message_blocks(
+                user_name=user.name,
+                slack_name=body['user']['name'],
+                feedback_title=feedback_title,
+                feedback_text=feedback_text
+            )
+
             # Feedback in den Feedback-Channel posten
             client.chat_postMessage(
                 channel="feedback",  # Der Channel-Name oder die Channel-ID
                 text=f"Neues Feedback von {user.name} (@{body['user']['name']})\n\nÜberschrift: {feedback_title}\n\nFeedback: {feedback_text}",
-                blocks=[
-                    {
-                        "type": "header",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"Neues Feedback von {user.name} (@{body['user']['name']})"
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"*Überschrift:*\n{feedback_title}"
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"*Feedback:*\n{feedback_text}"
-                        }
-                    },
-                    {
-                        "type": "context",
-                        "elements": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"Gesendet: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-                            }
-                        ]
-                    }
-                ]
+                blocks=blocks
             )
 
             # Bestätigung an den Benutzer senden

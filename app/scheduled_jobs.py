@@ -1,5 +1,5 @@
 #==========================
-# app/reminder_jobs.py
+# app/scheduled_jobs.py
 #==========================
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -23,6 +23,15 @@ def init_scheduler() -> BackgroundScheduler:
         'cron',
         hour=settings.REMINDER_HOUR,
         minute=settings.REMINDER_MINUTE
+    )
+
+    # Wöchentliche Bestellzusammenfassung einrichten (Mittwoch 09:30)
+    scheduler.add_job(
+        order_handler.send_weekly_summary,
+        'cron',
+        day_of_week='wed',
+        hour=9,
+        minute=30
     )
 
     scheduler.start()

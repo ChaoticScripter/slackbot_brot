@@ -8,7 +8,7 @@ from app.utils.db.database import db_session
 from app.utils.logging.log_config import setup_logger
 from app.core.user_service import UserService
 from app.utils.constants.error_types import ValidationError
-from app.utils.message_blocks.messages import create_name_blocks, create_registration_blocks
+from app.utils.message_blocks.messages import create_name_blocks, create_registration_blocks, create_user_help_blocks
 
 logger = setup_logger(__name__)
 
@@ -94,29 +94,7 @@ class UserHandler:
 
     def _show_help(self, user_id: str) -> None:
         """Zeigt die Hilfe-Nachricht an"""
-        blocks = [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "👤 Benutzer-Befehle"
-                }
-            },
-            {
-                "type": "divider"
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": (
-                        "*Verfügbare Befehle:*\n"
-                        "• `/user register [name]` Registriere dich als neuer Benutzer\n"
-                        "• `/user name [neuer name]` Ändere deinen Namen\n"
-                    )
-                }
-            }
-        ]
+        blocks = create_user_help_blocks()
         self._send_message(user_id, blocks=blocks)
 
     def _send_message(self, user_id: str, text: str = None, blocks: List = None) -> None:

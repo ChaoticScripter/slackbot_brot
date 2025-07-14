@@ -94,12 +94,14 @@ Bestellt Brötchen für den aktuellen Tag. Beispiel:
 ## Datenbank-Schema
 
 ### Tabelle: `users`
-|  Spalte  |      Typ      |   Constraints    |      Beschreibung      |
-|:--------:|:-------------:|:----------------:|:----------------------:|
-| user_id  |    INTEGER    |   Primary Key    | Eindeutige Benutzer-ID |
-| slack_id |  VARCHAR(50)  | NOT NULL, UNIQUE | Slack-Benutzerkennung  |
-|   name   | NVARCHAR(100) |       NULL       |   Name des Benutzers   |
-| is_away  |    BOOLEAN    |  DEFAULT FALSE   | Status der Abwesenheit |
+|   Spalte    |      Typ      |      Constraints       |         Beschreibung          |
+|:-----------:|:-------------:|:---------------------:|:-----------------------------:|
+|   user_id   |    INTEGER    |     Primary Key      |    Eindeutige Benutzer-ID     |
+|  slack_id   |  VARCHAR(50)  | NOT NULL, UNIQUE     |   Slack-Benutzerkennung       |
+|    name     | NVARCHAR(100) |        NULL          |     Name des Benutzers        |
+|   is_away   |    BOOLEAN    | NOT NULL, DEFAULT 0  |    Status der Abwesenheit     |
+|  is_admin   |    BOOLEAN    | NOT NULL, DEFAULT 0  |     Admin-Berechtigung        |
+| gets_orders |    BOOLEAN    | NOT NULL, DEFAULT 0  | Erhält gesammelte Bestellungen|
 
 ### Tabelle: `orders`
 |   Spalte   |      Typ      | Constraints |         Beschreibung          |
@@ -161,7 +163,9 @@ CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     slack_id VARCHAR(50) NOT NULL UNIQUE,
     name NVARCHAR(100) NULL,
-    is_away BOOLEAN DEFAULT FALSE
+    is_away BOOLEAN NOT NULL DEFAULT FALSE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    gets_orders BOOLEAN NOT NULL DEFAULT FALSE
 ) ENGINE=InnoDB;
 
 -- Tabelle: products

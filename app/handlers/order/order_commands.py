@@ -446,3 +446,42 @@ class OrderHandler:
         except Exception as e:
             logger.error(f"Error listing products: {str(e)}")
             self._send_message(user_id, "Ein Fehler ist beim Abrufen der Produkte aufgetreten")
+
+    def send_weekly_summary(self) -> None:
+        """Sendet die Wochenbestellung an alle berechtigten Benutzer"""
+        if not self.slack_app:
+            logger.error("Slack app not initialized")
+            return
+
+        logger.info("Sending weekly order summary")
+        try:
+            with db_session() as session:
+                service = OrderService(session)
+                users, summary = service.send_weekly_summary()
+
+                if not users or not summary:
+                    logger.info("No orders to send or no users to receive summary")
+                    return
+
+                # Zeitraum für die Überschrift bestimmen
+                now = datetime.now()
+                days_since_wednesday = (now.weekday() - 2) % 7
+                last_wednesday = now - timedelta(days=days_since_wednesday)
+                period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
+                period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+                # Blocks erstellen und an alle berechtigten Benutzer senden
+                blocks = create_weekly_summary_blocks(summary, period_start, period_end)
+
+                for user in users:
+                    try:
+                        self.slack_app.client.chat_postMessage(
+                            channel=user.slack_id,
+                            text="Wochenbestellung",
+                            blocks=blocks
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send weekly summary to user {user.slack_id}: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Failed to send weekly summaries: {str(e)}")
