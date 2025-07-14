@@ -240,10 +240,13 @@ class OrderService:
 
         period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
 
-        # Alle Bestellungen im Zeitraum holen
-        orders = self.session.query(Order).filter(
-            Order.order_date.between(period_start, period_end)
-        ).all()
+        # Nur eindeutige Bestellungen im Zeitraum holen
+        orders = (
+            self.session.query(Order)
+            .filter(Order.order_date.between(period_start, period_end))
+            .distinct()
+            .all()
+        )
 
         # Bestellungen nach Produkten zusammenfassen
         product_totals = {}
