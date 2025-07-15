@@ -9,8 +9,16 @@ import json
 from app.utils.message_blocks.constants import EMOJIS, BLOCK_DEFAULTS, COLORS
 from app.models import Order
 
+# Diese Datei enthält Hilfsfunktionen zur Erstellung von Slack Message Blocks.
+# Die Funktionen sind so gestaltet, dass sie für alle Bot-Nachrichten wiederverwendbar sind.
+# Jede Funktion gibt eine Liste von Block-Objekten zurück, die direkt an Slack gesendet werden können.
+
 
 def create_admin_help_blocks() -> List[Dict]:
+    """
+    Erstellt Message Blocks für die Admin-Hilfe.
+    Zeigt alle verfügbaren Admin-Befehle an.
+    """
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['ADMIN']} Admin-Befehle"),
         BLOCK_DEFAULTS["DIVIDER"],
@@ -28,7 +36,12 @@ def create_admin_help_blocks() -> List[Dict]:
         }
     ]
 
+
 def create_product_list_blocks(products: List) -> List[Dict]:
+    """
+    Erstellt Message Blocks für die Produktübersicht (Admin).
+    Zeigt alle aktiven Produkte als Liste an.
+    """
     blocks = [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Produktübersicht"),
         BLOCK_DEFAULTS["DIVIDER"]
@@ -51,13 +64,16 @@ def create_product_list_blocks(products: List) -> List[Dict]:
                 "type": "mrkdwn",
                 "text": f"• *{product.name}*"
             }
-
         })
 
     return blocks
 
+
 def create_product_list_blocks() -> List[Dict]:
-    """Erstellt Message Blocks für die Produktliste"""
+    """
+    Erstellt Message Blocks für die Produktliste (User).
+    Zeigt die Spaltenüberschriften für die Produkt-Tabelle an.
+    """
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Verfügbare Produkte"),
         BLOCK_DEFAULTS["DIVIDER"],
@@ -76,8 +92,12 @@ def create_product_list_blocks() -> List[Dict]:
         }
     ]
 
+
 def create_product_row_block(product) -> Dict:
-    """Erstellt einen Block für eine Produktzeile"""
+    """
+    Erstellt einen Block für eine Produktzeile (User).
+    Zeigt Name und Beschreibung des Produkts an.
+    """
     return {
         "type": "section",
         "fields": [
@@ -93,6 +113,10 @@ def create_product_row_block(product) -> Dict:
     }
 
 def create_order_help_blocks() -> List[Dict]:
+    """
+    Erstellt Message Blocks für die Bestellhilfe.
+    Zeigt alle verfügbaren Bestellbefehle an.
+    """
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['ORDER']} Bestellhilfe"),
         BLOCK_DEFAULTS["DIVIDER"],
@@ -234,6 +258,10 @@ def create_order_list_blocks(orders: List[Order], period_start: datetime, period
     return blocks
 
 def create_daily_reminder_blocks() -> List[Dict]:
+    """
+    Erstellt tägliche Erinnerungs-Blöcke für die Benutzer.
+    Erinnern an die Abgabe der Bestellung.
+    """
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['REMINDER']} Tägliche Erinnerung"),
         BLOCK_DEFAULTS["DIVIDER"],
@@ -250,6 +278,10 @@ def create_daily_reminder_blocks() -> List[Dict]:
     ]
 
 def create_name_blocks(current_name: str = None, new_name: str = None) -> List[Dict]:
+    """
+    Erstellt Message Blocks zur Anzeige oder Änderung des Benutzernamens.
+    Bei Änderung wird der alte und neue Name angezeigt.
+    """
     if new_name:
         # Name change confirmation
         return [
@@ -285,6 +317,10 @@ def create_name_blocks(current_name: str = None, new_name: str = None) -> List[D
         ]
 
 def create_registration_blocks() -> List[Dict]:
+    """
+    Erstellt Message Blocks für die Benutzerregistrierung.
+    Fordert den Benutzer auf, sich zu registrieren.
+    """
     return [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['NEW']} Registrierung erforderlich"),
         BLOCK_DEFAULTS["DIVIDER"],

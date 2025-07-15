@@ -7,8 +7,18 @@ from datetime import datetime
 from app.models import User, Order
 from app.utils.message_blocks.constants import COLORS, EMOJIS, BLOCK_DEFAULTS
 
+# Diese Datei enthält die Funktion zur Erstellung der Home-Ansicht (App Home) für den Slack-Bot.
+# Die Home-Ansicht ist die zentrale Übersichtsseite für den User in Slack.
+# Sie zeigt Willkommensnachricht, Schnellzugriffe, aktuelle Bestellungen, Feedback-Formular und ggf. Admin-Funktionen.
+
 def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str, Any]:
-    """Erstellt die Home-Ansicht für den Bot"""
+    """
+    Erstellt die Home-Ansicht für den BrotBot in Slack.
+    Zeigt Willkommensnachricht, Schnellzugriffe, aktuelle Wochenbestellung, Feedback-Formular und Admin-Bereich.
+    :param user: User-Objekt (aktueller Slack-User)
+    :param recent_orders: Liste der letzten Bestellungen des Users (optional)
+    :return: Dictionary mit Slack-Home-View-Blocks
+    """
     blocks = [
         {
             "type": "header",
@@ -91,9 +101,9 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         }
     ]
 
-    # Aktuelle Wochenbestellung anzeigen
+    # Aktuelle Wochenbestellung anzeigen (falls vorhanden)
     if recent_orders:
-        # Alle Produkte über den gesamten Zeitraum summieren
+        # Produkte und Mengen aufsummieren
         product_totals = {}
         for order in recent_orders:
             for item in order.items:
@@ -107,58 +117,33 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             blocks.append({
                 "type": "section",
                 "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": "*Produkt*"
-                    },
-                    {
-                        "type": "mrkdwn",
-                        "text": "*Menge*"
-                    }
+                    {"type": "mrkdwn", "text": "*Produkt*"},
+                    {"type": "mrkdwn", "text": "*Menge*"}
                 ]
             })
-
-            # Produktliste in Tabellenform ausgeben
             for product, quantity in sorted(product_totals.items()):
                 blocks.append({
                     "type": "section",
                     "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"{product}"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"{quantity}x"
-                        }
+                        {"type": "mrkdwn", "text": f"{product}"},
+                        {"type": "mrkdwn", "text": f"{quantity}x"}
                     ]
                 })
         else:
             blocks.append({
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "_Keine aktiven Bestellungen für diese Woche_"
-                }
+                "text": {"type": "mrkdwn", "text": "_Keine aktiven Bestellungen für diese Woche_"}
             })
 
+    # Weitere Blöcke: User-Infos, Feedback, Admin-Bereich
     blocks.extend([
         BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Allgemeine Infos:*"
-            },
+            "text": {"type": "mrkdwn", "text": "*Allgemeine Infos:*"},
             "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Name:*\n{user.name}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Status:*\n{'Abwesend' if user.is_away else 'Anwesend'}"
-                }
+                {"type": "mrkdwn", "text": f"*Name:*\n{user.name}"},
+                {"type": "mrkdwn", "text": f"*Status:*\n{'Abwesend' if user.is_away else 'Anwesend'}"}
             ]
         },
         BLOCK_DEFAULTS["CONTEXT"](
@@ -167,10 +152,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": "📝 Feedback"
-            }
+            "text": {"type": "plain_text", "text": "📝 Feedback"}
         },
         {
             "type": "input",
@@ -178,16 +160,10 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             "element": {
                 "type": "plain_text_input",
                 "action_id": "feedback_title_input",
-                "placeholder": {
-                    "type": "plain_text",
-                    "text": "Kurze Überschrift für dein Feedback"
-                },
+                "placeholder": {"type": "plain_text", "text": "Kurze Überschrift für dein Feedback"},
                 "max_length": 100
             },
-            "label": {
-                "type": "plain_text",
-                "text": "Überschrift"
-            }
+            "label": {"type": "plain_text", "text": "Überschrift"}
         },
         {
             "type": "input",
@@ -196,16 +172,10 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 "type": "plain_text_input",
                 "action_id": "feedback_text_input",
                 "multiline": True,
-                "placeholder": {
-                    "type": "plain_text",
-                    "text": "Beschreibe dein Feedback, Verbesserungsvorschläge oder Probleme..."
-                },
+                "placeholder": {"type": "plain_text", "text": "Beschreibe dein Feedback, Verbesserungsvorschläge oder Probleme..."},
                 "max_length": 1000
             },
-            "label": {
-                "type": "plain_text",
-                "text": "Feedback"
-            }
+            "label": {"type": "plain_text", "text": "Feedback"}
         },
         {
             "type": "actions",
@@ -213,11 +183,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             "elements": [
                 {
                     "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Feedback senden",
-                        "emoji": True
-                    },
+                    "text": {"type": "plain_text", "text": "Feedback senden", "emoji": True},
                     "style": "primary",
                     "action_id": "submit_feedback"
                 }
@@ -225,27 +191,21 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         }
     ])
 
-    # Admin-Sektion für Administratoren
+    # Admin-Sektion für Administratoren anzeigen
     if user.is_admin:
         blocks.extend([
             BLOCK_DEFAULTS["DIVIDER"],
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{EMOJIS['ADMIN']} Admin-Funktionen:*"
-                }
+                "text": {"type": "mrkdwn", "text": f"*{EMOJIS['ADMIN']} Admin-Funktionen:*"}
             },
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": (
-                        f"• `/admin product add [name] [beschreibung]` {EMOJIS['NEW']} Produkt hinzufügen\n"
-                        f"• `/admin product list` {EMOJIS['LIST']} Produkte anzeigen\n"
-                        f"• `/admin help` {EMOJIS['INFO']} Admin-Hilfe"
-                    )
-                }
+                "text": {"type": "mrkdwn", "text": (
+                    f"• `/admin product add [name] [beschreibung]` {EMOJIS['NEW']} Produkt hinzufügen\n"
+                    f"• `/admin product list` {EMOJIS['LIST']} Produkte anzeigen\n"
+                    f"• `/admin help` {EMOJIS['INFO']} Admin-Hilfe"
+                )}
             }
         ])
 

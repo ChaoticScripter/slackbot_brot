@@ -14,7 +14,12 @@ logger = setup_logger(__name__)
 
 
 def create_app() -> Flask:
-    """Erstellt und konfiguriert die Flask-Anwendung"""
+    """
+    Erstellt und konfiguriert die Flask-Anwendung für den BrotBot.
+    - Registriert die Slack-Routen (Blueprint)
+    - Kann um weitere Blueprints erweitert werden
+    :return: Flask-App-Instanz
+    """
     app = Flask(__name__)
 
     # Registriere die Slack-Routen mit dem korrekten URL-Präfix
@@ -24,12 +29,12 @@ def create_app() -> Flask:
 
 if __name__ == "__main__":
     try:
-        # Datenbank-Tabellen erstellen
+        # Datenbank-Tabellen erstellen (nur falls noch nicht vorhanden)
         Base.metadata.create_all(bind=engine)
 
         # Flask-App erstellen und Scheduler starten
         app = create_app()
-        scheduler = init_scheduler()  # Starte den Scheduler
+        scheduler = init_scheduler()  # Starte den Scheduler für Erinnerungen und Wochenübersicht
 
         logger.info("Starting BrotBot server...")
         app.run(

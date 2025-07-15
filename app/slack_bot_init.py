@@ -31,10 +31,14 @@ order_handler = OrderHandler(slack_app=app)
 user_handler = UserHandler(slack_app=app)
 admin_handler = AdminHandler(slack_app=app)
 
+# Event- und Command-Handler für Slack
 
 @app.event("app_home_opened")
 def handle_app_home_opened(client, event, logger):
-    """Handler für App Home Opened Event"""
+    """
+    Handler für das Öffnen der App Home Ansicht in Slack.
+    Zeigt die Home-View mit aktuellen Bestellungen, Feedback und Admin-Bereich.
+    """
     try:
         user_id = event["user"]
 
@@ -61,69 +65,72 @@ def handle_app_home_opened(client, event, logger):
 
 @app.command("/user")
 def handle_user_command(ack, body, logger):
-    """Handler für den /name Command"""
+    """
+    Handler für den /user Command (z.B. Registrierung, Name ändern, Hilfe).
+    """
     ack()
     user_handler.handle_user_command(body, logger)
 
 
 @app.command("/order")
 def handle_order_command(ack, body, logger):
-    """Handler für den /order Command"""
+    """
+    Handler für den /order Command (Bestellen, Liste, Remove, Save, etc.).
+    """
     ack()
     order_handler.handle_order(body, logger)
 
 
 @app.command("/admin")
 def handle_admin_command(ack, body, logger):
-    """Handler für den /admin Command"""
+    """
+    Handler für den /admin Command (Produktverwaltung, Admin-Hilfe).
+    """
     ack()
     admin_handler.handle_admin(body, logger)
 
 
 @app.error
 def handle_errors(error, body, logger):
-    """Globaler Error Handler"""
+    """
+    Globaler Error Handler für alle Slack-Events und Commands.
+    Gibt Fehler im Log aus und kann für User-Feedback genutzt werden.
+    """
     logger.error(f"Error: {error}")
     logger.debug(f"Error body: {body}")
 
 
 handler = SlackRequestHandler(app)
 
+# ==========================
+# Interaktive Aktionen (Buttons, Modals, etc.)
+# ==========================
 
 @app.action("remove_confirm")
 def handle_remove_confirm(ack, body, client):
-    """Handler für den Bestätigen-Button"""
+    """
+    Handler für den Bestätigen-Button beim Entfernen von Produkten aus der Bestellung.
+    Aktualisiert die Bestellung in der Datenbank und die Slack-Nachricht.
+    """
     ack()
     try:
-        # Debug-Logging für die empfangenen Daten
         logger.debug(f"Received action body: {json.dumps(body)}")
-
-        # Button-Value aus den Actions extrahieren
         if not body.get("actions") or not body["actions"][0].get("value"):
             raise ValueError("Keine Button-Daten gefunden")
-
         button_data = json.loads(body["actions"][0]["value"])
         if button_data.get("type") != "remove_order":
             raise ValueError("Ungültiger Datentyp")
-
         data = button_data.get("data", {})
         items = data.get("items")
         user_id = data.get("user_id")
-
         if not items or not user_id:
             raise ValueError("Unvollständige Daten")
-
-        # Buttons entfernen und Status aktualisieren
         blocks = body["message"]["blocks"]
         blocks = blocks[:-2]  # Entferne Timer-Info und Action-Block
-
-        # Bestellung in der Datenbank aktualisieren
         with db_session() as session:
             service = OrderService(session)
             service.remove_items(user_id, items)
             session.commit()
-
-        # Status-Update hinzufügen
         blocks.append({
             "type": "context",
             "elements": [
@@ -133,15 +140,12 @@ def handle_remove_confirm(ack, body, client):
                 }
             ]
         })
-
-        # Nachricht aktualisieren
         client.chat_update(
             channel=body["container"]["channel_id"],
             ts=body["container"]["message_ts"],
             blocks=blocks,
             text="Bestellung wurde aktualisiert"
         )
-
     except Exception as e:
         logger.error(f"Error confirming remove: {str(e)}")
         client.chat_postMessage(
@@ -152,14 +156,14 @@ def handle_remove_confirm(ack, body, client):
 
 @app.action("remove_cancel")
 def handle_remove_cancel(ack, body, client):
-    """Handler für den Abbrechen-Button"""
+    """
+    Handler für den Abbrechen-Button beim Entfernen von Produkten.
+    Bricht den Vorgang ab und aktualisiert die Slack-Nachricht.
+    """
     ack()
     try:
-        # Buttons entfernen und Status aktualisieren
         blocks = body["message"]["blocks"]
         blocks = blocks[:-2]  # Entferne Timer-Info und Action-Block
-
-        # Abbruch-Info hinzufügen
         blocks.append({
             "type": "context",
             "elements": [
@@ -169,15 +173,12 @@ def handle_remove_cancel(ack, body, client):
                 }
             ]
         })
-
-        # Nachricht aktualisieren
         client.chat_update(
             channel=body["container"]["channel_id"],
             ts=body["container"]["message_ts"],
             blocks=blocks,
             text="Vorgang abgebrochen"
         )
-
     except Exception as e:
         logger.error(f"Error handling cancel: {str(e)}")
         client.chat_postMessage(
@@ -188,42 +189,35 @@ def handle_remove_cancel(ack, body, client):
 
 @app.action("submit_feedback")
 def handle_feedback_submission(ack, body, client):
-    """Handler für Feedback-Einreichungen"""
+    """
+    Handler für Feedback-Einreichungen aus der Home-View.
+    Liest die Feedbackdaten aus dem Modal, postet sie in den Feedback-Channel und bestätigt dem User.
+    """
     ack()
     try:
-        # Home-View spezifische Block-Struktur
         home_view_values = body.get("view", {}).get("state", {}).get("values", {})
-
         feedback_title = home_view_values.get("feedback_title", {}).get("feedback_title_input", {}).get("value", "")
         feedback_text = home_view_values.get("feedback_text", {}).get("feedback_text_input", {}).get("value", "")
         user_id = body["user"]["id"]
-
         with db_session() as session:
             user = session.query(User).filter_by(slack_id=user_id).first()
             if not user:
                 raise ValueError("Benutzer nicht gefunden")
-
-            # Feedback-Blocks erstellen und in den Feedback-Channel posten
             blocks = create_feedback_message_blocks(
                 user_name=user.name,
                 slack_name=body['user']['name'],
                 feedback_title=feedback_title,
                 feedback_text=feedback_text
             )
-
-            # Feedback in den Feedback-Channel posten
             client.chat_postMessage(
                 channel="feedback",  # Der Channel-Name oder die Channel-ID
                 text=f"Neues Feedback von {user.name} (@{body['user']['name']})\n\nÜberschrift: {feedback_title}\n\nFeedback: {feedback_text}",
                 blocks=blocks
             )
-
-            # Bestätigung an den Benutzer senden
             client.chat_postMessage(
                 channel=user_id,
                 text="✅ Vielen Dank für dein Feedback! Es wurde erfolgreich übermittelt."
             )
-
     except Exception as e:
         logger.error(f"Error handling feedback submission: {str(e)}")
         client.chat_postMessage(
