@@ -241,7 +241,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 "text": {
                     "type": "mrkdwn",
                     "text": (
-                        f"• `/admin product add [name]` {EMOJIS['NEW']} Produkt hinzufügen\n"
+                        f"• `/admin product add [name] [beschreibung]` {EMOJIS['NEW']} Produkt hinzufügen\n"
                         f"• `/admin product list` {EMOJIS['LIST']} Produkte anzeigen\n"
                         f"• `/admin help` {EMOJIS['INFO']} Admin-Hilfe"
                     )
