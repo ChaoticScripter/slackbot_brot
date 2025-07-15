@@ -471,8 +471,18 @@ class OrderHandler:
                 period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
                 period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
 
+                # --- NEU: Namen der Besteller ermitteln ---
+                # Alle User, die in der Woche bestellt haben
+                user_ids_with_orders = set()
+                orders = session.query(Order).filter(Order.order_date.between(period_start, period_end)).all()
+                for order in orders:
+                    if order.user and order.user.name:
+                        user_ids_with_orders.add(order.user.name)
+                user_names = sorted(user_ids_with_orders)
+                # ---
+
                 # Blocks erstellen und an alle berechtigten Benutzer senden
-                blocks = create_weekly_summary_blocks(summary, period_start, period_end)
+                blocks = create_weekly_summary_blocks(summary, period_start, period_end, user_names)
 
                 for user in users:
                     try:

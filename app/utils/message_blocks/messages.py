@@ -547,8 +547,8 @@ def create_feedback_message_blocks(user_name: str, slack_name: str, feedback_tit
         }
     ]
 
-def create_weekly_summary_blocks(orders_summary: List[Dict], period_start: datetime, period_end: datetime) -> List[Dict]:
-    """Erstellt Message Blocks für die Wochenbestellungsübersicht"""
+def create_weekly_summary_blocks(orders_summary: List[Dict], period_start: datetime, period_end: datetime, user_names: List[str] = None) -> List[Dict]:
+    """Erstellt Message Blocks für die Wochenbestellungsübersicht inkl. Besteller-Namen"""
     blocks = [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['LIST']} Wochenbestellung"),
         BLOCK_DEFAULTS["CONTEXT"](
@@ -598,6 +598,20 @@ def create_weekly_summary_blocks(orders_summary: List[Dict], period_start: datet
                     "text": f"{item['quantity']}x"
                 }
             ]
+        })
+
+    # Namen der Besteller ergänzen
+    if user_names:
+        blocks.append(BLOCK_DEFAULTS["DIVIDER"])
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Bestellt von:* {', '.join(user_names)}"
+                }
+            ]
+
         })
 
     return blocks
