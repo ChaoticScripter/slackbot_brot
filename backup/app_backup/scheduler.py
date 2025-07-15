@@ -1,5 +1,5 @@
 #==========================
-# app/reminder_jobs.py
+# app/scheduled_jobs.py
 #==========================
 
 from apscheduler.schedulers.background import BackgroundScheduler

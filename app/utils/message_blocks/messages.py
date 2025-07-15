@@ -494,5 +494,113 @@ def create_order_summary_blocks(orders: List[Order], show_header: bool = True) -
 
     return blocks
 
+def create_user_help_blocks() -> List[Dict]:
+    """Erstellt Message Blocks für die User-Hilfe"""
+    return [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['USER']} Benutzer-Befehle"),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    "*Verfügbare Befehle:*\n"
+                    f"• `/user register [name]` {EMOJIS['NEW']} Registriere dich als neuer Benutzer\n"
+                    f"• `/user name [neuer name]` {EMOJIS['EDIT']} Ändere deinen Namen\n"
+                )
+            }
+        }
+    ]
+
+def create_feedback_message_blocks(user_name: str, slack_name: str, feedback_title: str, feedback_text: str) -> List[Dict]:
+    """Erstellt Message Blocks für eine Feedback-Nachricht"""
+    return [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"Neues Feedback von {user_name} (@{slack_name})"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Überschrift:*\n{feedback_title}"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Feedback:*\n{feedback_text}"
+            }
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"Gesendet: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+                }
+            ]
+        }
+    ]
+
+def create_weekly_summary_blocks(orders_summary: List[Dict], period_start: datetime, period_end: datetime) -> List[Dict]:
+    """Erstellt Message Blocks für die Wochenbestellungsübersicht"""
+    blocks = [
+        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['LIST']} Wochenbestellung"),
+        BLOCK_DEFAULTS["CONTEXT"](
+            f"Zeitraum: {EMOJIS['CALENDAR']} {period_start.strftime('%d.%m.%Y')} 10:00 - "
+            f"{period_end.strftime('%d.%m.%Y')} 09:59"
+        ),
+        BLOCK_DEFAULTS["DIVIDER"]
+    ]
+
+    if not orders_summary:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{EMOJIS['INFO']} Keine Bestellungen in diesem Zeitraum"
+            }
+        })
+        return blocks
+
+    blocks.extend([
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Produkt*"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Menge*"
+                }
+            ]
+        }
+    ])
+
+    # Produktliste in Tabellenform ausgeben
+    for item in orders_summary:
+        blocks.append({
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"{item['name']}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"{item['quantity']}x"
+                }
+            ]
+        })
+
+    return blocks
+
 # Weitere Message-Block-Funktionen bleiben ähnlich,
 # werden aber mit den neuen Konstanten und Layouts aktualisiert

@@ -55,3 +55,66 @@ def create_order_modal(trigger_id: str) -> Dict:
             ]
         }
     }
+
+def create_feedback_modal() -> List[Dict]:
+    """Erstellt einen Modal-Dialog für Feedback"""
+    return [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "📝 Feedback"
+            }
+        },
+        {
+            "type": "input",
+            "block_id": "feedback_title",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "feedback_title_input",
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Kurze Überschrift für dein Feedback"
+                },
+                "max_length": 100
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Überschrift"
+            }
+        },
+        {
+            "type": "input",
+            "block_id": "feedback_text",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "feedback_text_input",
+                "multiline": True,
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Beschreibe dein Feedback, Verbesserungsvorschläge oder Probleme..."
+                },
+                "max_length": 1000
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Feedback"
+            }
+        },
+        {
+            "type": "actions",
+            "block_id": "feedback_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Feedback senden",
+                        "emoji": True
+                    },
+                    "style": "primary",
+                    "action_id": "submit_feedback"
+                }
+            ]
+        }
+    ]
