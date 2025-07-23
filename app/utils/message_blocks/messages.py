@@ -568,37 +568,39 @@ def create_weekly_summary_blocks(orders_summary: List[Dict], period_start: datet
         })
         return blocks
 
-    blocks.extend([
-        {
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": "*Produkt*"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": "*Menge*"
-                }
-            ]
-        }
-    ])
+    all_users = set()  # Set für eindeutige Benutzer
 
-    # Produktliste in Tabellenform ausgeben
+    # Für jedes Produkt
     for item in orders_summary:
+        # Produkt-Header
         blocks.append({
             "type": "section",
             "fields": [
                 {
                     "type": "mrkdwn",
-                    "text": f"{item['name']}"
+                    "text": f"*{item['name']}*"
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{item['quantity']}x"
+                    "text": f"*{item['quantity']}x*"
                 }
             ]
         })
+        # Sammle alle Benutzer
+        for user in item['users']:
+            all_users.add(user['name'])
+
+    # Füge einen Divider hinzu
+    blocks.append(BLOCK_DEFAULTS["DIVIDER"])
+
+    # Füge die Benutzerliste als Context-Block hinzu
+    blocks.append({
+        "type": "context",
+        "elements": [{
+            "type": "mrkdwn",
+            "text": f"Bestellt von: {', '.join(sorted(all_users))}"
+        }]
+    })
 
     return blocks
 
