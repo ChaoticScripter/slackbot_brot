@@ -44,11 +44,27 @@ def handle_app_home_opened(client, event, logger):
                 logger.warning(f"User {user_id} not found")
                 return
 
+            # Zeitraum für aktuelle Woche berechnen
+            now = datetime.now()
+            current_weekday = now.weekday()
+            days_since_wednesday = (current_weekday - 2) % 7
+            last_wednesday = now - timedelta(days=days_since_wednesday)
+            period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
+
+            # Wenn Mittwoch vor 10 Uhr, dann Vorwoche
+            if current_weekday == 2 and now.hour < 10:
+                period_start = period_start - timedelta(days=7)
+
+            period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
+
+            # Nur Bestellungen der aktuellen Woche laden
             recent_orders = (
                 session.query(Order)
-                .filter(Order.user_id == user.user_id)
+                .filter(
+                    Order.user_id == user.user_id,
+                    Order.order_date.between(period_start, period_end)
+                )
                 .order_by(Order.order_date.desc())
-                .limit(5)
                 .all()
             )
 
