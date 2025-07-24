@@ -31,8 +31,8 @@ def init_scheduler() -> BackgroundScheduler:
         order_handler.send_weekly_summary,
         'cron',
         day_of_week='wed',  # Mittwoch
-        hour=13,            # 09:30 Uhr
-        minute=39
+        hour=9,            # 09:30 Uhr
+        minute=30
     )
 
     scheduler.start()
