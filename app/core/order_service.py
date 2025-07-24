@@ -269,25 +269,50 @@ class OrderService:
         if current_weekday == 2 and now.hour < 10:  # Wenn Mittwoch vor 10 Uhr
             period_start = period_start - timedelta(days=7)
         period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
-        # Nur eindeutige Bestellungen im Zeitraum holen
+
+        # Hole alle Bestellungen mit User-Informationen
+
         orders = (
             self.session.query(Order)
             .filter(Order.order_date.between(period_start, period_end))
             .distinct()
             .all()
         )
-        # Bestellungen nach Produkten zusammenfassen
+
+        # Bestellungen nach Produkten und Usern zusammenfassen
+
         product_totals = {}
+        user_orders = {}  # Dict für User-spezifische Bestellungen
+
         for order in orders:
+            user_name = order.user.name or "Unbekannt"
+
             for item in order.items:
                 name = item.product.name
+                # Produkt-Totale
                 if name in product_totals:
                     product_totals[name] += item.quantity
                 else:
                     product_totals[name] = item.quantity
+
+                # User-spezifische Bestellungen
+                if name not in user_orders:
+                    user_orders[name] = []
+                if user_name not in [u['name'] for u in user_orders[name]]:
+                    user_orders[name].append({
+                        'name': user_name,
+                        'quantity': item.quantity
+                    })
+                else:
+                    # Addiere zur bestehenden Menge des Users
+                    for user_order in user_orders[name]:
+                        if user_order['name'] == user_name:
+                            user_order['quantity'] += item.quantity
+                            
         return [{
             'name': name,
-            'quantity': quantity
+            'quantity': quantity,
+            'users': sorted(user_orders[name], key=lambda x: x['name'])  # Sortiere User alphabetisch
         } for name, quantity in sorted(product_totals.items())]
 
     def send_weekly_summary(self) -> None:

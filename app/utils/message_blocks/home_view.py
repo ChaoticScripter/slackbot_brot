@@ -35,62 +35,69 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 "text": f"*Willkommen, {user.name}!*"
             }
         },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Schnellzugriff:*"
-            }
-        },
-        {
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"{EMOJIS['WARNING']} Neue Bestellung (WiP)"
-                    },
-                    "style": "danger",
-                    "action_id": "new_order"
-                },
-                {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"{EMOJIS['WARNING']} Meine Bestellungen (WiP)"
-                    },
-                    "style": "danger",
-                    "action_id": "list_orders"
-                }
-            ]
-        },
-        BLOCK_DEFAULTS["DIVIDER"],
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*Verfügbare Befehle:*"
-            }
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": (
-                    f"• `/order add` Neue Bestellung\n"
-                    f"• `/order list` Aktuelle Bestellung anzeigen\n"
-                    f"• `/order save` Bestellung speichern\n"
-                    f"• `/order savelist` Gespeicherte Bestellungen anzeigen\n"
-                    f"• `/order remove` Produkt aus Bestellung löschen\n"
-                    f"• `/order products` Aktive Produkte anzeigen\n"
-                    f"• `/order` Hilfe anzeigen\n\n"
-                    f"• `/user register` In die Datenbank registrieren\n"
-                    f"• `/user name` Name in der Datenbank ändern\n"
-                    f"• `/user` Hilfe anzeigen\n"
-                )
-            }
-        },
+
+        # Schnellzugriff (optional)
+
+        # {
+        #     "type": "section",
+        #     "text": {
+        #         "type": "mrkdwn",
+        #         "text": "*Schnellzugriff:*"
+        #     }
+        # },
+        # {
+        #     "type": "actions",
+        #     "elements": [
+        #         {
+        #             "type": "button",
+        #             "text": {
+        #                 "type": "plain_text",
+        #                 "text": f"{EMOJIS['WARNING']} Neue Bestellung (WiP)"
+        #             },
+        #             "style": "danger",
+        #             "action_id": "new_order"
+        #         },
+        #         {
+        #             "type": "button",
+        #             "text": {
+        #                 "type": "plain_text",
+        #                 "text": f"{EMOJIS['WARNING']} Meine Bestellungen (WiP)"
+        #             },
+        #             "style": "danger",
+        #             "action_id": "list_orders"
+        #         }
+        #     ]
+        # },
+
+
+        # Befehle-Übersicht (optional)
+
+        # BLOCK_DEFAULTS["DIVIDER"],
+        # {
+        #     "type": "section",
+        #     "text": {
+        #         "type": "mrkdwn",
+        #         "text": "*Verfügbare Befehle:*"
+        #     }
+        # },
+        # {
+        #     "type": "section",
+        #     "text": {
+        #         "type": "mrkdwn",
+        #         "text": (
+        #             f"• `/order add` Neue Bestellung\n"
+        #             f"• `/order list` Aktuelle Bestellung anzeigen\n"
+        #             f"• `/order save` Bestellung speichern\n"
+        #             f"• `/order savelist` Gespeicherte Bestellungen anzeigen\n"
+        #             f"• `/order remove` Produkt aus Bestellung löschen\n"
+        #             f"• `/order products` Aktive Produkte anzeigen\n"
+        #             f"• `/order` Hilfe anzeigen\n\n"
+        #             f"• `/user register` In die Datenbank registrieren\n"
+        #             f"• `/user name` Name in der Datenbank ändern\n"
+        #             f"• `/user` Hilfe anzeigen\n"
+        #         )
+        #     }
+        # },
         BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "header",

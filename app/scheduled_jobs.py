@@ -39,8 +39,8 @@ def init_scheduler() -> BackgroundScheduler:
     scheduler.add_job(
         order_handler.send_weekly_summary,
         'cron',
-        day_of_week='wed',  # Mittwoch (Achtung: 0=Montag, 1=Dienstag, ...)
-        hour=9,            # 11:29 Uhr (Beispiel)
+        day_of_week='wed',  # Mittwoch
+        hour=9,            # 09:30 Uhr
         minute=30
     )
 
