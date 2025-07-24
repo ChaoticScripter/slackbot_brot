@@ -28,8 +28,17 @@ from threading import Timer
 
 logger = setup_logger(__name__)
 
+# ==========================
+# Hilfsfunktion zum Parsen von /order add Kommandos
+# ==========================
+# Diese Funktion wandelt den Text eines /order add Kommandos in eine Liste von Produkt-Dictionaries um.
+# Beispiel: "add broetchen 2, vollkorn 1" -> [{name: broetchen, quantity: 2}, ...]
 def _parse_order_command(text: str) -> List[Dict[str, Any]]:
-    """Parst den Bestelltext in eine Liste von Produkten und Mengen"""
+    """
+    Parst den Bestelltext in eine Liste von Produkten und Mengen.
+    Erwartet das Format: 'add [produkt] [anzahl], ...'
+    Gibt eine Liste von Dicts mit Produktnamen und Mengen zurück.
+    """
     if not text.startswith('add '):
         raise OrderError("Ungültiges Bestellformat. Verwende: /order add [produkt] [anzahl]")
 
@@ -52,21 +61,33 @@ def _parse_order_command(text: str) -> List[Dict[str, Any]]:
     return items
 
 class OrderHandler:
+    """
+    Haupt-Handler für alle /order-Kommandos.
+    Verwaltet das Routing und ruft die passenden Service-Methoden auf.
+    """
     def __init__(self, slack_app=None):
+        # Referenz auf die Slack-App, um Nachrichten senden zu können
         self.slack_app = slack_app
 
     def handle_order(self, body: Dict[str, Any], logger: logging.Logger) -> None:
-        """Synchrone Hauptfunktion für den /order Command"""
+        """
+        Haupt-Dispatcher für den /order Command.
+        Prüft, welches Subkommando aufgerufen wurde und leitet an die passende Methode weiter.
+        body: Slack-Request-Body mit User- und Command-Infos
+        logger: Logger-Instanz für Fehlerausgaben
+        """
         try:
             command = body
             user_id = command.get('user_id')
 
+            # Prüfe, ob der User existiert (sonst Registrierung fordern)
             with db_session() as session:
                 user = session.query(User).filter_by(slack_id=user_id).first()
                 if not user:
                     self._send_message(user_id, "Bitte registriere dich zuerst mit dem `/user register` Befehl.")
                     return
 
+            # Wenn kein Sub-Command angegeben, Hilfe anzeigen
             if not command.get('text'):
                 self._show_help(user_id)
                 return
@@ -74,8 +95,9 @@ class OrderHandler:
             command_parts = command['text'].split()
             sub_command = command_parts[0] if command_parts else None
 
+            # Routing zu den jeweiligen Methoden je nach Sub-Command
             if sub_command == 'add':
-                # Prüfen ob gespeicherte Bestellung
+                # Prüfen ob gespeicherte Bestellung geladen werden soll
                 if len(command_parts) == 2:
                     with db_session() as session:
                         service = SavedOrderService(session)
@@ -104,7 +126,9 @@ class OrderHandler:
                 self._send_message(command['user_id'], f"Fehler: {str(e)}")
 
     def _handle_add_order(self, command: Dict[str, Any]) -> None:
-        """Verarbeitet eine neue Bestellung"""
+        """
+        Verarbeitet eine neue Bestellung und bestätigt sie dem User.
+        """
         try:
             items = _parse_order_command(command.get('text', ''))
             user_id = command['user_id']
@@ -115,7 +139,7 @@ class OrderHandler:
                 session.flush()
                 session.commit()
                 session.refresh(order)
-                # Verwende die neue Block-Funktion statt Attachments
+                # Verwende die neue Block-Funktion für die Bestellbestätigung
                 blocks = create_order_confirmation_blocks(order)
                 self._send_message(user_id, blocks=blocks)
 
@@ -126,7 +150,10 @@ class OrderHandler:
             self._send_message(command['user_id'], "Ein unerwarteter Fehler ist aufgetreten.")
 
     def _handle_list_orders(self, user_id: str) -> None:
-        """Zeigt die Bestellungen der aktuellen Mittwoch-Woche an"""
+        """
+        Zeigt die Bestellungen der aktuellen Woche für den User an.
+        Berechnet den Zeitraum von Mittwoch 10:00 bis Mittwoch 09:59 der Folgewoche.
+        """
         try:
             with db_session() as session:
                 now = datetime.now()
@@ -161,7 +188,7 @@ class OrderHandler:
                     .order_by(Order.order_date.desc()) \
                     .first()
 
-                # Verwende die neue Block-Funktion statt Attachments
+                # Verwende die neue Block-Funktion für die Bestellübersicht
                 blocks = create_order_list_blocks(orders, period_start, period_end, latest_order)
                 self._send_message(user_id, blocks=blocks)
 
@@ -170,13 +197,18 @@ class OrderHandler:
             self._send_message(user_id, "Fehler beim Abrufen der Bestellungen.")
 
     def _show_help(self, user_id: str) -> None:
-        """Zeigt die Hilfe-Nachricht an"""
+        """
+        Zeigt die Hilfe-Nachricht für /order an.
+        """
         blocks = create_order_help_blocks()
         self._send_message(user_id, blocks=blocks)
 
     def _send_message(self, user_id: str, text: str = None, blocks: List = None,
                       attachments: List = None) -> None:
-        """Sendet eine Nachricht an einen Benutzer"""
+        """
+        Sendet eine Nachricht an einen Benutzer (User oder Admin).
+        Verbesserte Fallback-Logik für den Text.
+        """
         if not self.slack_app:
             logger.error("Slack app not initialized")
             return
@@ -195,7 +227,10 @@ class OrderHandler:
             logger.error(f"Failed to send message to {user_id}: {str(e)}")
 
     def _get_fallback_text(self, blocks: List = None, attachments: List = None) -> str:
-        """Generiert einen sinnvollen Fallback-Text basierend auf dem Nachrichtentyp"""
+        """
+        Generiert einen sinnvollen Fallback-Text für Slack-Nachrichten.
+        Nutzt Header-Text, falls vorhanden, sonst generischen Text.
+        """
         if attachments:
             return "Neue Bestellbestätigung"
         elif blocks:
@@ -207,7 +242,10 @@ class OrderHandler:
         return "Neue Nachricht vom BrotBot"
 
     def send_daily_reminder(self) -> None:
-        """Sendet tägliche Erinnerungen an alle aktiven Benutzer"""
+        """
+        Sendet tägliche Erinnerungen an alle aktiven Benutzer.
+        Wird vom Scheduler aufgerufen.
+        """
         if not self.slack_app:
             logger.error("Slack app not initialized")
             return
@@ -231,7 +269,9 @@ class OrderHandler:
             logger.error(f"Failed to send daily reminders: {str(e)}")
 
     def _handle_save_order(self, command: Dict[str, Any]) -> None:
-        """Speichert eine Bestellvorlage"""
+        """
+        Speichert eine Bestellvorlage für den User.
+        """
         try:
             text = command.get('text', '').strip()
             if not text.startswith('save '):
@@ -258,7 +298,9 @@ class OrderHandler:
             self._send_message(command['user_id'], f"Fehler: {str(e)}")
 
     def _handle_savelist(self, user_id: str) -> None:
-        """Zeigt gespeicherte Bestellvorlagen"""
+        """
+        Zeigt alle gespeicherten Bestellvorlagen des Users an.
+        """
         try:
             with db_session() as session:
                 service = SavedOrderService(session)
@@ -284,7 +326,11 @@ class OrderHandler:
             self._send_message(user_id, f"Fehler: {str(e)}")
 
     def _parse_remove_command(self, command_text: str) -> List[Dict[str, Any]]:
-        """Parst den Remove-Command und normalisiert die Produktnamen"""
+        """
+        Parst den Remove-Command und normalisiert die Produktnamen.
+        Erwartet das Format: 'remove [produkt] [anzahl], ...'
+        Gibt eine Liste von Dicts mit Produktnamen und Mengen zurück.
+        """
         if not command_text.startswith('remove '):
             raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl], ...")
 
@@ -320,7 +366,10 @@ class OrderHandler:
         return items
 
     def _handle_remove_order(self, command: Dict[str, Any]) -> None:
-        """Verarbeitet das Entfernen von Produkten"""
+        """
+        Verarbeitet das Entfernen von Produkten aus der Bestellung.
+        Zeigt eine Vorschau und setzt einen Timeout für die Bestätigung.
+        """
         try:
             if not command.get('text', '').startswith('remove '):
                 raise OrderError("Ungültiges Format. Verwende: /order remove [produkt] [anzahl]")
@@ -427,7 +476,9 @@ class OrderHandler:
             self._send_message(command['user_id'], "Ein unerwarteter Fehler ist aufgetreten")
 
     def _handle_product_list(self, user_id: str) -> None:
-        """Zeigt eine Liste aller aktiven Produkte an"""
+        """
+        Zeigt eine Liste aller aktiven Produkte an.
+        """
         try:
             with db_session() as session:
                 # ProductService verwenden um aktive Produkte zu holen
@@ -449,7 +500,10 @@ class OrderHandler:
             self._send_message(user_id, "Ein Fehler ist beim Abrufen der Produkte aufgetreten")
 
     def send_weekly_summary(self) -> None:
-        """Sendet die Wochenbestellung an alle berechtigten Benutzer"""
+        """
+        Sendet die Wochenbestellung an alle berechtigten Benutzer.
+        Wird vom Scheduler aufgerufen.
+        """
         if not self.slack_app:
             logger.error("Slack app not initialized")
             return
@@ -471,8 +525,18 @@ class OrderHandler:
                 period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
                 period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
 
+                # --- NEU: Namen der Besteller ermitteln ---
+                # Alle User, die in der Woche bestellt haben
+                user_ids_with_orders = set()
+                orders = session.query(Order).filter(Order.order_date.between(period_start, period_end)).all()
+                for order in orders:
+                    if order.user and order.user.name:
+                        user_ids_with_orders.add(order.user.name)
+                user_names = sorted(user_ids_with_orders)
+                # ---
+
                 # Blocks erstellen und an alle berechtigten Benutzer senden
-                blocks = create_weekly_summary_blocks(summary, period_start, period_end)
+                blocks = create_weekly_summary_blocks(summary, period_start, period_end, user_names)
 
                 for user in users:
                     try:
@@ -486,3 +550,5 @@ class OrderHandler:
 
         except Exception as e:
             logger.error(f"Failed to send weekly summaries: {str(e)}")
+
+# Ende OrderHandler
