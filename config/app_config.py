@@ -29,6 +29,9 @@ class Settings:
     DEBUG: bool = True
     REMINDER_HOUR: int = 9
     REMINDER_MINUTE: int = 0
+    WEEKLY_SUMMARY_HOUR: int = 9
+    WEEKLY_SUMMARY_MINUTE: int = 30
+    WEEKLY_SUMMARY_DAY: str = 'wed'  # Wochentag für die Zusammenfassung
     SLACK: SlackConfig = field(default_factory=SlackConfig)
     DATABASE: DatabaseConfig = field(default_factory=DatabaseConfig)
 

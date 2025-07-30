@@ -26,13 +26,12 @@ def init_scheduler() -> BackgroundScheduler:
     )
 
     # Wöchentliche Bestellzusammenfassung einrichten
-    # Jeden Mittwoch um 09:30 Uhr
     scheduler.add_job(
         order_handler.send_weekly_summary,
         'cron',
-        day_of_week='wed',  # Mittwoch
-        hour=9,            # 09:30 Uhr
-        minute=30
+        day_of_week=settings.WEEKLY_SUMMARY_DAY,
+        hour=settings.WEEKLY_SUMMARY_HOUR,
+        minute=settings.WEEKLY_SUMMARY_MINUTE
     )
 
     scheduler.start()

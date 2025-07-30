@@ -14,15 +14,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"{EMOJIS['ORDER']} BrotBot Home"
-            }
-        },
-        BLOCK_DEFAULTS["DIVIDER"],
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Willkommen, {user.name}!*"
+                "text": f"Willkommen, {user.name}!"
             }
         },
 
@@ -149,6 +141,7 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
                 }
             })
 
+
     blocks.extend([
         BLOCK_DEFAULTS["DIVIDER"],
         {
@@ -171,6 +164,23 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         BLOCK_DEFAULTS["CONTEXT"](
             f"Zuletzt aktualisiert: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         ),
+        BLOCK_DEFAULTS["DIVIDER"],
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{EMOJIS['SETTINGS']} Hilfe:*"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"• `/admin product add [name]` {EMOJIS['NEW']} Produkt hinzufügen"
+                )
+            }
+        },
         BLOCK_DEFAULTS["DIVIDER"],
         {
             "type": "header",
