@@ -37,10 +37,13 @@ def create_admin_help_blocks() -> List[Dict]:
     ]
 
 
-def create_product_list_blocks(products: List) -> List[Dict]:
+def create_product_list_blocks(products: List = None) -> List[Dict]:
     """
-    Erstellt Message Blocks für die Produktübersicht (Admin).
+    Erstellt Message Blocks für die Produktübersicht.
     Zeigt alle aktiven Produkte als Liste an.
+
+    :param products: Optional - Liste der anzuzeigenden Produkte
+    :return: Liste von Message Blocks
     """
     blocks = [
         BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Produktübersicht"),
@@ -57,40 +60,11 @@ def create_product_list_blocks(products: List) -> List[Dict]:
         })
         return blocks
 
+    # Für jedes Produkt einen Block hinzufügen
     for product in products:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"• *{product.name}*"
-            }
-        })
+        blocks.append(create_product_row_block(product))
 
     return blocks
-
-
-def create_product_list_blocks() -> List[Dict]:
-    """
-    Erstellt Message Blocks für die Produktliste (User).
-    Zeigt die Spaltenüberschriften für die Produkt-Tabelle an.
-    """
-    return [
-        BLOCK_DEFAULTS["HEADER"](f"{EMOJIS['PRODUCT']} Verfügbare Produkte"),
-        BLOCK_DEFAULTS["DIVIDER"],
-        {
-            "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": "*Produkt*"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": "*Beschreibung*"
-                }
-            ]
-        }
-    ]
 
 
 def create_product_row_block(product) -> Dict:
@@ -112,6 +86,7 @@ def create_product_row_block(product) -> Dict:
         ]
     }
 
+
 def create_order_help_blocks() -> List[Dict]:
     """
     Erstellt Message Blocks für die Bestellhilfe.
@@ -132,7 +107,7 @@ def create_order_help_blocks() -> List[Dict]:
                     f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
                     f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"                    
                     f"• `/order help` - {EMOJIS['INFO']} Diese Hilfe\n"
-                    f"• `/order products` - {EMOJIS['List']} Produktliste\n"
+                    f"• `/order products` - {EMOJIS['LIST']} Produktliste\n"
                 )
             }
         }

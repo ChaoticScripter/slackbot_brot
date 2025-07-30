@@ -177,7 +177,10 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"• `/admin product add [name]` {EMOJIS['NEW']} Produkt hinzufügen"
+                    "Für Hilfe zu den verfügbaren Befehlen, verwende folgende Befehle:\n"
+                    f"• `/user` {EMOJIS['USER']} Benutzerbefehle\n"
+                    f"• `/order` {EMOJIS['ORDER']} Bestellbefehle\n" +
+                    (f"• `/admin` {EMOJIS['ADMIN']} Admin-Befehle\n" if user.is_admin else "")
                 )
             }
         },
@@ -241,30 +244,16 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
             ]
         }
     ])
-
-    # Admin-Sektion für Administratoren
-    if user.is_admin:
-        blocks.extend([
-            BLOCK_DEFAULTS["DIVIDER"],
+    # Füge Footer hinzu
+    blocks.append({
+        "type": "context",
+        "elements": [
             {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{EMOJIS['ADMIN']} Admin-Funktionen:*"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": (
-                        f"• `/admin product add [name]` {EMOJIS['NEW']} Produkt hinzufügen\n"
-                        f"• `/admin product list` {EMOJIS['LIST']} Produkte anzeigen\n"
-                        f"• `/admin help` {EMOJIS['INFO']} Admin-Hilfe"
-                    )
-                }
+                "type": "mrkdwn",
+                "text": f"Bot erstellt von *{'Benedict Benge' if user.slack_id == 'U08LZK84FFZ' else ""}, *im Auftrag von *Tobias Schenck* der Schenck.de AG"
             }
-        ])
+        ]
+    })
 
     return {
         "type": "home",

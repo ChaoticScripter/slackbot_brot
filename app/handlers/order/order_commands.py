@@ -485,12 +485,8 @@ class OrderHandler:
                 service = ProductService(session)
                 products = service.get_active_products()
 
-                # Basis-Blocks erstellen
-                blocks = create_product_list_blocks()
-
-                # Für jedes Produkt einen Block hinzufügen
-                for product in products:
-                    blocks.append(create_product_row_block(product))
+                # Blocks mit den Produkten erstellen
+                blocks = create_product_list_blocks(products)
 
                 # Nachricht senden
                 self._send_message(user_id, blocks=blocks)

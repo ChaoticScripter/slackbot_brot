@@ -125,6 +125,7 @@ class AdminHandler:
         Sendet eine formatierte Produktliste an den Admin.
         Nutzt die Message-Block-Funktion für die Produktübersicht.
         """
+        # Direkter Aufruf ohne benanntes Argument
         blocks = create_product_list_blocks(products)
         self._send_message(user_id, blocks=blocks)
 
