@@ -2,13 +2,73 @@
 # app/utils/message_blocks/home_view.py
 #==========================
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from app.models import User, Order
 from app.utils.message_blocks.constants import COLORS, EMOJIS, BLOCK_DEFAULTS
 
-def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str, Any]:
+def create_unregistered_home_view() -> Dict[str, Any]:
+    """Erstellt die Home-Ansicht für nicht registrierte Benutzer"""
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "Willkommen beim BrotBot! 🥨"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Bevor du den Bot nutzen kannst, musst du dich registrieren."
+            }
+        },
+        {
+            "type": "input",
+            "block_id": "registration_name",
+            "element": {
+                "type": "plain_text_input",
+                "action_id": "registration_name_input",
+                "placeholder": {
+                    "type": "plain_text",
+                    "text": "Dein Name"
+                },
+                "min_length": 1
+            },
+            "label": {
+                "type": "plain_text",
+                "text": "Registriere dich mit deinem Namen"
+            }
+        },
+        {
+            "type": "actions",
+            "block_id": "registration_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Registrieren",
+                        "emoji": True
+                    },
+                    "style": "primary",
+                    "action_id": "submit_registration"
+                }
+            ]
+        }
+    ]
+
+    return {
+        "type": "home",
+        "blocks": blocks
+    }
+
+def create_home_view(user: Optional[User] = None, recent_orders: List[Order] = None) -> Dict[str, Any]:
     """Erstellt die Home-Ansicht für den Bot"""
+    if user is None:
+        return create_unregistered_home_view()
+
     blocks = [
         {
             "type": "header",
@@ -145,11 +205,14 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
     blocks.extend([
         BLOCK_DEFAULTS["DIVIDER"],
         {
-            "type": "section",
+            "type": "header",
             "text": {
-                "type": "mrkdwn",
-                "text": "*Allgemeine Infos:*"
-            },
+                "type": "plain_text",
+                "text": f"{EMOJIS['USER']}Infos zu dir"
+            }
+        },
+        {
+            "type": "section",
             "fields": [
                 {
                     "type": "mrkdwn",
@@ -166,18 +229,19 @@ def create_home_view(user: User, recent_orders: List[Order] = None) -> Dict[str,
         ),
         BLOCK_DEFAULTS["DIVIDER"],
         {
-            "type": "section",
+            "type": "header",
             "text": {
-                "type": "mrkdwn",
-                "text": f"*{EMOJIS['SETTINGS']} Hilfe:*"
+                "type": "plain_text",
+                "text": f"{EMOJIS['SETTINGS']} Hilfe & Befehle"
             }
         },
+
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    "Für Hilfe zu den verfügbaren Befehlen, verwende folgende Befehle:\n"
+                    "Für Hilfe zu den verfügbaren Befehlen, verwende folgende Befehle:\n\n"
                     f"• `/user` {EMOJIS['USER']} Benutzerbefehle\n"
                     f"• `/order` {EMOJIS['ORDER']} Bestellbefehle\n" +
                     (f"• `/admin` {EMOJIS['ADMIN']} Admin-Befehle\n" if user.is_admin else "")
