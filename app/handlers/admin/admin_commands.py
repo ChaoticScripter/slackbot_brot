@@ -85,7 +85,8 @@ class AdminHandler:
             # Beschreibung ist optional, kann aber mitgegeben werden
             if action == 'add' and len(args) >= 2:
                 name = args[1]
-                description = args[2] if len(args) > 2 else None
+                # Nimm den Rest des Strings als Beschreibung, falls vorhanden
+                description = ' '.join(args[2:]) if len(args) > 2 else None
                 product = service.add_product(name, description)
                 self._send_message(user_id, f"✅ Produkt '{product.name}' wurde hinzugefügt")
             # Produktliste anzeigen: /admin product list
