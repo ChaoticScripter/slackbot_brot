@@ -14,6 +14,7 @@ from app.utils.db.database import db_session
 from app.utils.message_blocks.home_view import create_home_view
 from app.utils.message_blocks.messages import create_user_help_blocks, create_feedback_message_blocks
 from app.utils.message_blocks.modals import create_feedback_modal
+from app.core.user_service import UserService
 from app.models import User, Order
 from app.core.order_service import OrderService
 import json
@@ -31,37 +32,39 @@ order_handler = OrderHandler(slack_app=app)
 user_handler = UserHandler(slack_app=app)
 admin_handler = AdminHandler(slack_app=app)
 
+def check_user_registered(user_id: str) -> bool:
+    """Prüft, ob ein User registriert ist"""
+    with db_session() as session:
+        return session.query(User).filter_by(slack_id=user_id).first() is not None
+
 # Event- und Command-Handler für Slack
 
 @app.event("app_home_opened")
 def handle_app_home_opened(client, event, logger):
-    """
-    Handler für das Öffnen der App Home Ansicht in Slack.
-    Zeigt die Home-View mit aktuellen Bestellungen, Feedback und Admin-Bereich.
-    """
+    """Handler für das Öffnen der App Home Ansicht in Slack"""
     try:
         user_id = event["user"]
-
         with db_session() as session:
             user = session.query(User).filter_by(slack_id=user_id).first()
+
+            # Wenn User nicht registriert ist, zeige Registrierungsview
             if not user:
-                logger.warning(f"User {user_id} not found")
+                view = create_home_view()  # Ohne User-Parameter für unregistrierte Ansicht
+                client.views_publish(user_id=user_id, view=view)
                 return
 
-            # Zeitraum für aktuelle Woche berechnen
+            # Normale Home-View für registrierte User
             now = datetime.now()
             current_weekday = now.weekday()
             days_since_wednesday = (current_weekday - 2) % 7
             last_wednesday = now - timedelta(days=days_since_wednesday)
             period_start = last_wednesday.replace(hour=10, minute=0, second=0, microsecond=0)
 
-            # Wenn Mittwoch vor 10 Uhr, dann Vorwoche
             if current_weekday == 2 and now.hour < 10:
                 period_start = period_start - timedelta(days=7)
 
             period_end = period_start + timedelta(days=7) - timedelta(minutes=1)
 
-            # Nur Bestellungen der aktuellen Woche laden
             recent_orders = (
                 session.query(Order)
                 .filter(
@@ -78,31 +81,79 @@ def handle_app_home_opened(client, event, logger):
     except Exception as e:
         logger.error(f"Error publishing home view: {str(e)}")
 
+@app.action("submit_registration")
+def handle_registration_submit(ack, body, client):
+    """Handler für den Registrierungsbutton im Home-View"""
+    ack()
+    try:
+        user_id = body["user"]["id"]
+        input_value = body["view"]["state"]["values"]["registration_name"]["registration_name_input"]["value"]
+
+        if not input_value:
+            client.chat_postMessage(
+                channel=user_id,
+                text="❌ Bitte gib einen Namen ein."
+            )
+            return
+
+        with db_session() as session:
+            service = UserService(session)
+            user = service.register_user(user_id, input_value)
+            session.commit()
+
+            # Aktualisiere Home-View nach erfolgreicher Registrierung
+            view = create_home_view(user)
+            client.views_publish(user_id=user_id, view=view)
+
+            client.chat_postMessage(
+                channel=user_id,
+                text=f"✅ Erfolgreich registriert als {input_value}!"
+            )
+
+    except Exception as e:
+        logger.error(f"Error handling registration: {str(e)}")
+        client.chat_postMessage(
+            channel=body["user"]["id"],
+            text=f"❌ Fehler bei der Registrierung: {str(e)}"
+        )
 
 @app.command("/user")
 def handle_user_command(ack, body, logger):
-    """
-    Handler für den /user Command (z.B. Registrierung, Name ändern, Hilfe).
-    """
+    """Handler für den /user Command"""
     ack()
+    if not body.get('text', '').startswith('register') and not check_user_registered(body['user_id']):
+        blocks = create_registration_blocks()
+        app.client.chat_postMessage(
+            channel=body['user_id'],
+            blocks=blocks
+        )
+        return
     user_handler.handle_user_command(body, logger)
-
 
 @app.command("/order")
 def handle_order_command(ack, body, logger):
-    """
-    Handler für den /order Command (Bestellen, Liste, Remove, Save, etc.).
-    """
+    """Handler für den /order Command"""
     ack()
+    if not check_user_registered(body['user_id']):
+        blocks = create_registration_blocks()
+        app.client.chat_postMessage(
+            channel=body['user_id'],
+            blocks=blocks
+        )
+        return
     order_handler.handle_order(body, logger)
-
 
 @app.command("/admin")
 def handle_admin_command(ack, body, logger):
-    """
-    Handler für den /admin Command (Produktverwaltung, Admin-Hilfe).
-    """
+    """Handler für den /admin Command"""
     ack()
+    if not check_user_registered(body['user_id']):
+        blocks = create_registration_blocks()
+        app.client.chat_postMessage(
+            channel=body['user_id'],
+            blocks=blocks
+        )
+        return
     admin_handler.handle_admin(body, logger)
 
 
