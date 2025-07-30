@@ -29,8 +29,7 @@ def create_admin_help_blocks() -> List[Dict]:
                 "text": (
                     "*Produkt-Verwaltung:*\n"
                     f"• `/admin product add [name]` {EMOJIS['NEW']} Neues Produkt hinzufügen\n"
-                    f"• `/admin product list` {EMOJIS['LIST']} Alle Produkte anzeigen\n"
-                    f"• `/admin help` {EMOJIS['INFO']} Diese Hilfe anzeigen"
+                    f"• `/admin product list` {EMOJIS['LIST']} Alle Produkte anzeigen"
                 )
             }
         }
@@ -105,8 +104,7 @@ def create_order_help_blocks() -> List[Dict]:
                     f"• `/order remove [produkt] [anzahl], ...` - {EMOJIS['DELETE']} Produkt entfernen\n"
                     f"• `/order list` - {EMOJIS['LIST']} Aktuelle Bestellungen anzeigen\n"
                     f"• `/order save [name] [produkt] [anzahl], ...` - {EMOJIS['SAVE']} Bestellung speichern\n"
-                    f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"                    
-                    f"• `/order help` - {EMOJIS['INFO']} Diese Hilfe\n"
+                    f"• `/order savelist` - {EMOJIS['LIST']} Gespeicherte Bestellungen anzeigen\n"
                     f"• `/order products` - {EMOJIS['LIST']} Produktliste\n"
                 )
             }
